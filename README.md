@@ -41,7 +41,7 @@ claude
 
 ### 영향받는 경로
 
-감지된 도구만 적용됩니다. 기존 파일이 있으면 `backup/` 폴더에 보존한 뒤 심링크를 생성합니다.
+다음 중 사용자에게 해당하는 설정에만 적용됩니다. 기존 파일이 있으면 `backup/` 폴더에 보존한 뒤 심링크를 생성합니다.
 
 **AI 도구:**
 
@@ -61,13 +61,15 @@ claude
 
 ```text
 dotfiles/
+├── .claude/
+│   └── skills/
+│       ├── setup/                     #   /setup (인스톨러)
+│       └── uninstall/                 #   /uninstall (제거/복원)
+│
 ├── templates/                         # 기본값 템플릿
 │   ├── ai/
 │   │   ├── claude/
-│   │   │   ├── settings.json
-│   │   │   └── skills/
-│   │   │       ├── setup/             #   /setup (인스톨러)
-│   │   │       └── uninstall/         #   /uninstall (제거/복원)
+│   │   │   └── settings.json
 │   │   ├── codex/
 │   │   ├── gemini/
 │   │   └── AGENTS.md                  #   통합 인스트럭션 템플릿
