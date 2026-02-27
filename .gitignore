@@ -1,0 +1,6 @@
+# Personal config (managed separately)
+config/
+
+# OS
+.DS_Store
+Thumbs.db

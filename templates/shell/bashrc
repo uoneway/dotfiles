@@ -1,0 +1,56 @@
+# ============================================================
+# Bash configuration
+# ============================================================
+
+# History
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTCONTROL=ignoreboth:erasedups
+shopt -s histappend
+
+# Shell options
+shopt -s checkwinsize
+shopt -s globstar 2>/dev/null
+
+# ============================================================
+# OS-specific config
+# ============================================================
+if [[ "$(uname)" == "Darwin" ]]; then
+  [[ -f ~/.bashrc.d/macos.bash ]] && source ~/.bashrc.d/macos.bash
+else
+  [[ -f ~/.bashrc.d/linux.bash ]] && source ~/.bashrc.d/linux.bash
+fi
+
+# ============================================================
+# Common PATH
+# ============================================================
+export PATH="$HOME/.local/bin:$PATH"
+
+# ============================================================
+# Prompt
+# ============================================================
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+# ============================================================
+# Aliases
+# ============================================================
+alias ..='cd ..'
+alias ...='cd ../..'
+alias cl='clear'
+alias h='history | tail -10'
+alias reload='source ~/.bashrc'
+
+# Git
+alias gs='git status'
+alias gc='git commit -m'
+alias gp='git push'
+alias gpl='git pull'
+alias gco='git checkout'
+alias gb='git branch'
+alias gl='git log --oneline --graph --decorate'
+alias gd='git diff'
+
+# AI tools (uncomment as needed)
+# alias cc="claude"
+# alias cx="codex"
+# alias gm="gemini"
