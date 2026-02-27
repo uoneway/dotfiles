@@ -66,18 +66,7 @@ dotfiles/
 │       ├── setup/                     #   /setup (인스톨러)
 │       └── uninstall/                 #   /uninstall (제거/복원)
 │
-├── templates/                         # 기본값 템플릿
-│   ├── ai/
-│   │   ├── claude/
-│   │   │   └── settings.json
-│   │   ├── codex/
-│   │   ├── gemini/
-│   │   └── AGENTS.md                  #   통합 인스트럭션 템플릿
-│   └── shell/
-│       ├── zshrc
-│       ├── bashrc
-│       ├── zshrc.d/                   #   OS별 확장 (macos.zsh, linux.zsh)
-│       └── bashrc.d/
+├── templates/                         # 기본값 템플릿 (→ 설치과정에서 config/로 복사됨)
 │
 ├── config/                            # 내 설정 (gitignored)
 │   ├── ai/
