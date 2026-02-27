@@ -88,39 +88,23 @@ ln -sf AGENTS.md CLAUDE.md
 ln -sf AGENTS.md GEMINI.md
 ```
 
-## Step 4: 의존성 확인 및 설치
+## Step 4: AI 도구 셋업
 
 Step 1 결과를 기반으로 AI가 판단한다.
 
-### 미설치 AI 도구
+### 미설치 AI 도구 안내
 
 Q1에서 선택했지만 미설치인 도구가 있으면 설치 방법을 안내한다:
 
-- **Claude Code**: `npm install -g @anthropic-ai/claude-code`
-- **Codex CLI**: `npm install -g @openai/codex`
-- **Gemini CLI**: `npm install -g @google/gemini-cli` (또는 최신 설치 방법)
+- **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux) 또는 `brew install --cask claude-code`
+- **Codex CLI**: `npm install -g @openai/codex` 또는 `brew install --cask codex` (macOS)
+- **Gemini CLI**: `npm install -g @google/gemini-cli` 또는 `brew install gemini-cli`
 
 사용자가 지금 설치할지, 나중에 할지 선택하게 한다.
 
-### Oh My Zsh (셸이 zsh인 경우)
+### 심링크 생성
 
-미설치 시 사용자에게 설치를 제안:
-
-```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-```
-
-### nvm
-
-미설치 시 사용자에게 설치를 제안:
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-```
-
-## Step 5: 심링크 생성
-
-선택된 각 AI 도구에 대해 (먼저):
+선택된 각 AI 도구에 대해:
 
 ```bash
 bash templates/ai/claude/skills/setup/scripts/link-tool.sh claude
@@ -128,7 +112,28 @@ bash templates/ai/claude/skills/setup/scripts/link-tool.sh codex
 bash templates/ai/claude/skills/setup/scripts/link-tool.sh gemini
 ```
 
-그 다음 셸 설정:
+각 스크립트의 출력을 확인하여 성공/실패를 파악한다.
+기존 설정 파일이 있었다면 `backup/` 폴더에 홈 디렉토리 구조를 미러링하여 백업된다.
+
+## Step 5: 셸 셋업
+
+### 의존성 확인
+
+셸 설정이 의존하는 도구가 미설치면 설치를 제안한다. 강제 설치는 하지 않으며, 건너뛸 수 있다.
+
+#### Oh My Zsh (셸이 zsh인 경우)
+
+```bash
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+```
+
+#### nvm
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+```
+
+### 심링크 생성
 
 ```bash
 bash templates/ai/claude/skills/setup/scripts/link-shell.sh <zsh|bash>
