@@ -1,0 +1,4 @@
+// dotfiles 프레임워크의 git은 동기화하지 않음 (clone으로 받으면 됨)
+.git
+// config/ 내부의 git도 제외 (별도 관리)
+config/.git
