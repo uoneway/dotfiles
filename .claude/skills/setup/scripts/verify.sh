@@ -1,10 +1,12 @@
 #!/bin/bash
 # verify.sh — 설치 결과 검증
+# Usage: bash verify.sh [--unified|--separate]
 # 모든 심링크 상태를 확인하고 구조화된 결과를 출력
 set -e
 
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
+MODE="${1:---unified}"
 ERRORS=0
 
 check_link() {
@@ -43,14 +45,18 @@ case "$SHELL" in
   *)      USER_SHELL="zsh" ;;
 esac
 
-echo "=== VERIFY ==="
+echo "=== VERIFY (mode: ${MODE#--}) ==="
 echo ""
 
-# AI Tools (먼저 검증)
+# AI Tools
 if command -v claude &>/dev/null || [ -d "$HOME/.claude" ]; then
   echo "--- claude ---"
   check_link "$HOME/.claude/settings.json" "$CONFIG/ai/claude/settings.json" "settings.json"
-  check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/CLAUDE.md" "CLAUDE.md"
+  if [ "$MODE" = "--unified" ]; then
+    check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/AGENTS.md" "CLAUDE.md"
+  else
+    check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/claude/CLAUDE.md" "CLAUDE.md"
+  fi
   check_link "$HOME/.claude/skills" "$CONFIG/ai/claude/skills" "skills/"
   check_link "$HOME/.claude/agents" "$CONFIG/ai/claude/agents" "agents/"
   echo ""
@@ -59,7 +65,11 @@ fi
 if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
   echo "--- codex ---"
   check_link "$HOME/.codex/config.toml" "$CONFIG/ai/codex/config.toml" "config.toml"
-  check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
+  if [ "$MODE" = "--unified" ]; then
+    check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
+  else
+    check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" "AGENTS.md"
+  fi
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
   echo ""
 fi
@@ -67,11 +77,15 @@ fi
 if command -v gemini &>/dev/null || [ -d "$HOME/.gemini" ]; then
   echo "--- gemini ---"
   check_link "$HOME/.gemini/settings.json" "$CONFIG/ai/gemini/settings.json" "settings.json"
-  check_link "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/GEMINI.md" "GEMINI.md"
+  if [ "$MODE" = "--unified" ]; then
+    check_link "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/AGENTS.md" "GEMINI.md"
+  else
+    check_link "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/gemini/GEMINI.md" "GEMINI.md"
+  fi
   echo ""
 fi
 
-# Shell (AI 이후 검증)
+# Shell
 echo "--- shell ($USER_SHELL) ---"
 if [ "$USER_SHELL" = "zsh" ]; then
   check_link "$HOME/.zshrc" "$CONFIG/shell/zshrc" "zshrc"
@@ -93,7 +107,6 @@ echo ""
 # Config integrity
 echo "--- config integrity ---"
 check_file_exists "$CONFIG/ai" "config/ai"
-check_file_exists "$CONFIG/ai/CLAUDE.md" "config/ai/CLAUDE.md"
 check_file_exists "$CONFIG/ai/AGENTS.md" "config/ai/AGENTS.md"
 check_file_exists "$CONFIG/shell" "config/shell"
 echo ""
