@@ -3,7 +3,7 @@
 # Usage: bash link-tool.sh <claude|codex|gemini>
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 BACKUP="$DOTFILES/backup"
 TOOL="${1:?Usage: link-tool.sh <claude|codex|gemini>}"

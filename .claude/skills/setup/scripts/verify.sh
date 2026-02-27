@@ -3,7 +3,7 @@
 # 모든 심링크 상태를 확인하고 구조화된 결과를 출력
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 ERRORS=0
 

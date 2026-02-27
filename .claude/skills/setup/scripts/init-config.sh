@@ -2,7 +2,7 @@
 # init-config.sh — templates/ → config/ 초기 복사 (최초 1회)
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 TEMPLATES="$DOTFILES/templates"
 

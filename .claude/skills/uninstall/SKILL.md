@@ -2,8 +2,12 @@
 name: uninstall
 description: "dotfiles 심링크 제거 및 원본 복원. uninstall, remove, restore 요청 시 트리거."
 allowed-tools:
-  - Bash(bash *)
+  - Bash(bash .claude/skills/uninstall/scripts/*)
+  - Bash(bash .claude/skills/setup/scripts/verify.sh)
+  - AskUserQuestion
   - Read
+  - Write
+  - Edit
 ---
 
 # /uninstall — dotfiles 심링크 제거

@@ -6,7 +6,7 @@
 # --remove-only: 심링크만 제거
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 BACKUP="$DOTFILES/backup"
 CONFIG="$DOTFILES/config"
 TARGET="${1:-all}"

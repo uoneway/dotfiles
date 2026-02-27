@@ -3,7 +3,7 @@
 # 구조화된 블록으로 출력하여 AI가 파싱하기 쉽게 함
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 
 # OS
 case "$(uname -s)" in

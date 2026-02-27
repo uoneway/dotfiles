@@ -3,7 +3,7 @@
 # Usage: bash link-shell.sh <zsh|bash>
 set -e
 
-DOTFILES="$(cd "$(dirname "$0")/../../../../../../" && pwd)"
+DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 BACKUP="$DOTFILES/backup"
 SHELL_TYPE="${1:-zsh}"

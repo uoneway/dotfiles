@@ -2,10 +2,19 @@
 name: setup
 description: "dotfiles 초기 설치. 환경 분석, AI 도구 설정, 셸 구성을 자동으로 처리. setup, install, configure 요청 시 트리거."
 allowed-tools:
-  - Bash(bash *)
+  - Bash(bash .claude/skills/setup/scripts/*)
+  - Bash(ln -sf *)
+  - Bash(git add backup/*)
+  - Bash(git commit *)
+  - Bash(curl *)
+  - Bash(sh -c *)
+  - Bash(npm install -g *)
+  - Bash(cd *)
+  - AskUserQuestion
   - Read
   - Write
   - Edit
+  - Glob
 ---
 
 # /setup — dotfiles 인스톨러
