@@ -1,13 +1,45 @@
 #!/bin/bash
 # verify.sh — 설치 결과 검증
-# Usage: bash verify.sh [--unified|--separate]
-# 모든 심링크 상태를 확인하고 구조화된 결과를 출력
+# Usage: bash verify.sh [--unified|--separate] [--tools claude,codex,gemini]
+# --tools를 생략하면 dotfiles 심링크가 걸린 도구만 검증
 set -e
 
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
-MODE="${1:---unified}"
+MODE="--unified"
+TOOLS=""
 ERRORS=0
+
+# 인자 파싱
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --unified|--separate) MODE="$1" ;;
+    --tools) TOOLS="$2"; shift ;;
+  esac
+  shift
+done
+
+# 도구가 dotfiles에 의해 관리되는지 (심링크가 config/를 가리키는지)
+is_managed() {
+  local dst="$1"
+  if [ -L "$dst" ]; then
+    local target
+    target="$(readlink "$dst")"
+    case "$target" in
+      *dotfiles/config/*) return 0 ;;
+    esac
+  fi
+  return 1
+}
+
+# --tools가 없으면 심링크가 걸린 도구만 자동 감지
+if [ -z "$TOOLS" ]; then
+  detected=""
+  is_managed "$HOME/.claude/settings.json" && detected="${detected}claude,"
+  is_managed "$HOME/.codex/config.toml" && detected="${detected}codex,"
+  is_managed "$HOME/.gemini/settings.json" && detected="${detected}gemini,"
+  TOOLS="${detected%,}"
+fi
 
 check_link() {
   local dst="$1" expected_src="$2" label="$3"
@@ -45,11 +77,11 @@ case "$SHELL" in
   *)      USER_SHELL="zsh" ;;
 esac
 
-echo "=== VERIFY (mode: ${MODE#--}) ==="
+echo "=== VERIFY (mode: ${MODE#--}, tools: ${TOOLS:-none}) ==="
 echo ""
 
-# AI Tools
-if command -v claude &>/dev/null || [ -d "$HOME/.claude" ]; then
+# AI Tools — 선택된 도구만 검증
+if echo "$TOOLS" | grep -q "claude"; then
   echo "--- claude ---"
   check_link "$HOME/.claude/settings.json" "$CONFIG/ai/claude/settings.json" "settings.json"
   if [ "$MODE" = "--unified" ]; then
@@ -62,7 +94,7 @@ if command -v claude &>/dev/null || [ -d "$HOME/.claude" ]; then
   echo ""
 fi
 
-if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
+if echo "$TOOLS" | grep -q "codex"; then
   echo "--- codex ---"
   check_link "$HOME/.codex/config.toml" "$CONFIG/ai/codex/config.toml" "config.toml"
   if [ "$MODE" = "--unified" ]; then
@@ -74,7 +106,7 @@ if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
   echo ""
 fi
 
-if command -v gemini &>/dev/null || [ -d "$HOME/.gemini" ]; then
+if echo "$TOOLS" | grep -q "gemini"; then
   echo "--- gemini ---"
   check_link "$HOME/.gemini/settings.json" "$CONFIG/ai/gemini/settings.json" "settings.json"
   if [ "$MODE" = "--unified" ]; then

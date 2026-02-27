@@ -1,11 +1,10 @@
 ---
 name: setup
 description: "dotfiles 초기 설치. 환경 분석, AI 도구 설정, 셸 구성을 자동으로 처리. setup, install, configure 요청 시 트리거."
+model: sonnet
 allowed-tools:
   - Bash(bash .claude/skills/setup/scripts/*)
   - Bash(ln -sf *)
-  - Bash(git add backup/*)
-  - Bash(git commit *)
   - Bash(curl *)
   - Bash(sh -c *)
   - Bash(npm install -g *)
@@ -22,10 +21,21 @@ allowed-tools:
 dotfiles 설치 전 과정을 단계별로 수행한다.
 각 단계에서 스크립트 결과를 파싱하고, AI가 판단하여 다음 액션을 결정한다.
 
-## 사전 조건
+## Step 0: 환영 메시지
 
-- 현재 디렉토리가 `~/dotfiles` (또는 dotfiles 레포 루트)인지 확인
-- 아니라면 사용자에게 안내하고 중단
+사용자에게 다음을 출력한다:
+
+```
+dotfiles setup을 시작합니다.
+
+AI 도구(Claude Code, Codex CLI, Gemini CLI)와 셸 설정을
+config/ 한 곳에서 관리하고, symlink로 각 도구에 연결합니다.
+
+환경을 분석하고 몇 가지 질문을 드린 뒤 자동으로 설정합니다.
+```
+
+그 후 현재 디렉토리가 dotfiles 레포 루트인지 확인한다.
+아니라면 사용자에게 안내하고 중단한다.
 
 ## Step 1: 환경 분석
 
@@ -163,26 +173,14 @@ bash .claude/skills/setup/scripts/link-shell.sh <zsh|bash>
 각 스크립트의 출력을 확인하여 성공/실패를 파악한다.
 기존 설정 파일이 있었다면 `backup/` 폴더에 홈 디렉토리 구조를 미러링하여 백업된다.
 
-## Step 6: 백업 커밋
+## Step 6: 검증
 
-backup/ 폴더에 파일이 생겼다면 git commit으로 보존한다:
-
-```bash
-cd ~/dotfiles
-git add backup/
-git commit -m "backup: pre-dotfiles original configs"
-```
-
-이렇게 하면 원본 설정이 git 히스토리에 남아 안전하게 보존된다.
-
-## Step 7: 검증
-
-Q2 선택에 따라 동일한 모드 플래그를 전달:
+Q1에서 선택한 도구와 Q2 모드를 전달한다. `--tools`를 생략하면 심링크가 걸린 도구만 자동 감지한다.
 
 ```bash
-bash .claude/skills/setup/scripts/verify.sh --unified
+bash .claude/skills/setup/scripts/verify.sh --unified --tools claude,codex
 # 또는
-bash .claude/skills/setup/scripts/verify.sh --separate
+bash .claude/skills/setup/scripts/verify.sh --separate --tools claude,codex,gemini
 ```
 
 출력을 파싱한다:
@@ -195,9 +193,27 @@ bash .claude/skills/setup/scripts/verify.sh --separate
 3. 복구 후 verify.sh를 다시 실행하여 확인
 4. 해결 불가능하면 사용자에게 수동 조치 방법을 안내
 
-## Step 8: 후속 안내
+## Step 7: 완료 및 후속 안내
 
-설치 완료 후 다음을 안내한다:
+검증을 통과하면 다음을 출력한다:
+
+```
+Setup 완료! dotfiles가 성공적으로 설정되었습니다.
+
+설정된 항목:
+```
+
+그 아래에 실제로 설정된 도구와 셸을 요약해서 보여준다. 예:
+
+```
+  - Claude Code: ~/.claude/ -> config/ai/claude/
+  - Codex CLI:   ~/.codex/  -> config/ai/codex/
+  - zsh:         ~/.zshrc   -> config/shell/zshrc
+
+이제 config/ 안의 파일을 편집하면 모든 도구에 반영됩니다.
+```
+
+그 후 다음을 안내한다:
 
 ### 셸 적용
 
@@ -205,22 +221,12 @@ bash .claude/skills/setup/scripts/verify.sh --separate
 source ~/.zshrc   # 또는 source ~/.bashrc
 ```
 
-### config/ 개인 Git 관리
+### 동기화 설정 제안
 
-```bash
-cd ~/dotfiles/config
-git init
-git add -A && git commit -m "initial config"
-git remote add origin <your-private-repo-url>
-git push -u origin main
-```
+config/를 여러 머신에서 동기화하면 어디서든 같은 환경을 유지할 수 있다는 점을 간단히 설명하고, 설정할지 AskUserQuestion으로 묻는다.
 
-### 멀티 머신 동기화 (Q3에서 "예" 선택 시)
-
-동기화 방법을 안내한다:
-- **Git**: 각 머신에서 config/ private repo push/pull
-- **Syncthing**: 실시간 동기화 (.git은 .stignore에 추가)
-- **Git + Syncthing**: Syncthing으로 실시간, Git으로 히스토리
+- **예** → Skill 도구로 `sync-setup` 스킬을 직접 호출하여 이어서 진행한다.
+- **아니오** → 건너뛴다. "나중에 `/sync-setup`으로 언제든 설정할 수 있습니다."
 
 ### 커스터마이징 가이드
 

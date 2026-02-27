@@ -88,7 +88,7 @@ echo ""
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "claude" ]; then
   echo "--- claude ---"
   unlink_file "$HOME/.claude/settings.json" "settings.json" "$CONFIG/ai/claude/settings.json"
-  unlink_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md" "$CONFIG/ai/CLAUDE.md"
+  unlink_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md" "$CONFIG/ai/AGENTS.md"
   unlink_dir  "$HOME/.claude/skills" "skills/" "$CONFIG/ai/claude/skills"
   unlink_dir  "$HOME/.claude/agents" "agents/" "$CONFIG/ai/claude/agents"
   echo ""

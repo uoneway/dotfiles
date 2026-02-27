@@ -1,6 +1,9 @@
 # Personal config (managed separately)
 config/
 
+# Pre-dotfiles backup (machine-specific)
+backup/
+
 # OS
 .DS_Store
 Thumbs.db
