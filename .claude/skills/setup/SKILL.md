@@ -80,8 +80,9 @@ AskUserQuestion으로 3가지를 질문한다.
 
 "여러 OS(macOS/Linux)에서 이 dotfiles를 사용하시나요?"
 
-- **예** → Step 7에서 동기화 방법 안내
-- **아니오** → 현재 OS 전용 설정으로 진행
+- **예** → 추가 질문: "현재 OS는 {Step 1에서 감지된 OS}입니다. 추가로 사용하는 OS를 선택해주세요." (macOS / Linux 중 현재 OS가 아닌 것)
+  - Step 5에서 셸 설정을 공통/OS별로 분리하고, Step 7에서 동기화 방법 안내
+- **아니오** → 현재 OS 전용 설정으로 진행 (Step 5에서 현재 OS에 맞지 않는 설정만 정리)
 
 ## Step 3: config 초기화
 
@@ -148,23 +149,93 @@ bash .claude/skills/setup/scripts/link-tool.sh gemini --separate
 
 ## Step 5: 셸 셋업
 
-### 의존성 확인
+### 5-1. 기존 셸 설정 분석
 
-셸 설정이 의존하는 도구가 미설치면 설치를 제안한다. 강제 설치는 하지 않으며, 건너뛸 수 있다.
+사용자의 현재 셸 설정 파일(`~/.zshrc` 또는 `~/.bashrc`)을 읽고, 내용을 항목별로 분석한다.
+이미 `config/shell/` 에 셸 파일이 존재하면 그것을 분석 대상으로 한다.
 
-#### Oh My Zsh (셸이 zsh인 경우)
+분석 기준:
 
-```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+| 분류 | 판단 기준 | 예시 |
+|------|----------|------|
+| **공통** | OS에 무관하게 동작하는 설정 | alias, 환경변수(`PATH`에 OS 특정 경로 없는 것), 순수 셸 함수, 프롬프트 설정 |
+| **OS별** | OS에 따라 경로·명령어·패키지 관리자가 다른 설정 | Homebrew(`/opt/homebrew/`), `gls` vs `ls`, conda 경로(`miniforge3` vs `miniconda3`), pnpm 경로(`~/Library/`) |
+| **프레임워크 의존** | Oh My Zsh, nvm 등 특정 도구가 설치되어 있어야 동작하는 설정 | `source $ZSH/oh-my-zsh.sh`, `plugins=(...)`, `NVM_DIR` |
+
+### 5-2. 환경 유효성 검증
+
+분석한 각 항목이 현재 환경에서 실제로 유효한지 검증한다.
+
+검증 항목:
+
+- **참조 도구 존재 여부**: 설정에 등장하는 명령어/도구가 실제 설치되어 있는지 (`command -v`로 확인)
+  - 예: `gls` alias가 있지만 coreutils 미설치, `conda` 설정이 있지만 conda 미설치
+- **경로 유효성**: 설정에 하드코딩된 경로가 실제 존재하는지
+  - 예: `/opt/homebrew/opt/mysql-client@8.0/bin` 경로가 없는 경우
+- **프레임워크 의존성**: Oh My Zsh, nvm, p10k 등이 필요하지만 미설치인 경우
+- **OS 적합성**: 현재 OS에서 동작하지 않는 설정이 공통 영역에 포함된 경우
+
+검증 결과를 사용자에게 테이블 형태로 보여준다:
+
+```
+셸 설정 검증 결과:
+
+[ok]    alias gs='git status'          — git 설치 확인됨
+[ok]    Oh My Zsh 플러그인 (git, z)     — Oh My Zsh 설치 확인됨
+[warn]  conda activate (miniforge3)    — miniforge3 미설치 (현재 OS: Linux)
+[warn]  gls 사용 (lslh_pretty)          — coreutils 미설치
+[fail]  Oh My Zsh                      — 미설치 (셸 설정 전체가 의존)
 ```
 
-#### nvm
+### 5-3. 문제 항목 처리
 
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+검증에서 `[warn]` 또는 `[fail]`이 나온 항목에 대해 각각 처리 방안을 제시하고 사용자에게 선택받는다.
+
+#### 핵심 의존성 미설치 (`[fail]` 수준)
+
+셸 설정 전체가 의존하는 핵심 도구(예: 셸 프레임워크, 버전 매니저 등). 미설치 시 설정 파일이 정상 동작하지 않는다.
+
+AskUserQuestion으로 각각 설치 여부를 묻는다. 설치 명령을 제시하되 강제 설치는 하지 않으며, 건너뛸 수 있다.
+
+#### 개별 항목 문제 (`[warn]` 수준)
+
+AskUserQuestion으로 처리 방법을 묻는다. 항목별 선택지:
+
+- **설치**: 해당 도구를 지금 설치 (설치 명령 제시)
+- **제거**: 해당 설정을 셸 파일에서 제거
+- **OS별 파일로 이동**: 특정 OS에서만 유효한 설정이면 해당 OS 파일로 이동
+- **건너뛰기**: 지금은 무시하고 그대로 둠
+
+### 5-4. 셸 파일 생성
+
+분석 결과와 Q3 응답을 종합하여 셸 파일을 구성한다.
+
+#### 멀티 OS인 경우
+
+```
+config/shell/
+├── zshrc              ← 공통 설정만 (OS 분기 source 포함)
+└── zshrc.d/
+    ├── macos.zsh      ← macOS 전용 (Homebrew, gls, miniforge3 등)
+    └── linux.zsh      ← Linux 전용 (apt 계열, GNU ls, miniconda3 등)
 ```
 
-### 심링크 생성
+- `zshrc` 안에 `uname` 분기로 OS별 파일을 source하는 코드를 포함한다
+- 5-1에서 "OS별"로 분류된 항목을 각 OS 파일에 배치한다
+- 사용자가 직접 사용하지 않는 OS의 파일은 현재 OS 파일을 참고한 스켈레톤으로 생성하되, 사용자에게 "해당 OS 머신에서 경로 등을 확인 후 수정이 필요합니다"라고 안내한다
+
+#### 단일 OS인 경우
+
+```
+config/shell/
+├── zshrc              ← 현재 OS 기준 전체 설정
+└── zshrc.d/           ← (비어있거나 생략)
+```
+
+- 모든 설정을 `zshrc` 하나에 유지한다
+- 5-3에서 "제거"를 선택한 항목은 제외한다
+
+### 5-5. 심링크 생성
 
 ```bash
 bash .claude/skills/setup/scripts/link-shell.sh <zsh|bash>
