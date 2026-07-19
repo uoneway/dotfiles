@@ -27,5 +27,8 @@ cp -r "$TEMPLATES/shell" "$CONFIG/shell"
 rm -rf "$CONFIG/ai/claude/skills/setup"
 rm -rf "$CONFIG/ai/claude/skills/uninstall"
 
+# Gemini는 기본 비활성 — 명시적으로 선택한 경우에만 setup이 템플릿을 복사한다
+rm -rf "$CONFIG/ai/gemini"
+
 echo "[ok] config/ initialized from templates/"
 echo "Edit files in config/ to customize your setup."

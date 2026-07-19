@@ -13,7 +13,17 @@
 #   dotfiles machines                          # 등록된 머신 목록
 set -u
 
-DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+# $0가 심링크(~/.local/bin/dotfiles)여도 레포 루트를 올바르게 찾도록 resolve
+# (readlink -f는 구형 macOS에 없어 루프로 처리)
+SELF="$0"
+while [ -L "$SELF" ]; do
+  _target="$(readlink "$SELF")"
+  case "$_target" in
+    /*) SELF="$_target" ;;
+    *)  SELF="$(dirname "$SELF")/$_target" ;;
+  esac
+done
+DOTFILES="$(cd "$(dirname "$SELF")/.." && pwd)"
 CONFIG="$DOTFILES/config"
 SCRIPTS="$DOTFILES/.claude/skills/setup/scripts"
 MACHINES_FILE="$CONFIG/machines.toml"

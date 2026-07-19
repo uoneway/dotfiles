@@ -124,6 +124,12 @@ rm -f ~/dotfiles/config/ai/codex/AGENTS.md
 rm -f ~/dotfiles/config/ai/gemini/GEMINI.md
 ```
 
+**Gemini 선택 시** (Q1에서 명시적으로 선택한 경우만): init-config가 기본 제외하므로 템플릿을 복사한다.
+
+```bash
+cp -r ~/dotfiles/templates/ai/gemini ~/dotfiles/config/ai/gemini
+```
+
 **개별 모드**: 각 도구 폴더에 개별 인스트럭션 파일을 생성한다. `config/ai/AGENTS.md`의 내용을 초기값으로 복사한다.
 
 ```bash
