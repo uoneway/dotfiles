@@ -20,6 +20,9 @@ cp -r "$TEMPLATES/ai" "$CONFIG/ai"
 # 셸 설정
 cp -r "$TEMPLATES/shell" "$CONFIG/shell"
 
+# 머신 인벤토리 (멀티 머신 배포용)
+[ -f "$TEMPLATES/machines.toml" ] && cp "$TEMPLATES/machines.toml" "$CONFIG/machines.toml"
+
 # config/ai/claude 내 setup, uninstall 스킬은 제외 (템플릿 전용)
 rm -rf "$CONFIG/ai/claude/skills/setup"
 rm -rf "$CONFIG/ai/claude/skills/uninstall"

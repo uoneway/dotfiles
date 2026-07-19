@@ -1,14 +1,19 @@
 # dotfiles
 
-AI 코딩 도구(Claude Code, Codex CLI, Gemini CLI)와 셸(zsh/bash) 설정을 한 곳에서 관리합니다.
+AI 코딩 도구(Claude Code, Codex CLI)와 셸(zsh/bash) 설정을 한 곳에서 관리하고, 여러 머신에 배포합니다.
 
 ## Why dotfiles
 
-Claude Code, Codex CLI, Gemini CLI — AI 코딩 도구마다 설정 파일 위치가 다릅니다. 글로벌 인스트럭션을 바꾸려면 `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`를 각각 열어서 같은 내용을 반복 수정해야 합니다. 새 도구가 추가되면 또 하나 늘어납니다.
+AI 코딩 도구마다 설정 파일 위치가 다릅니다. 글로벌 인스트럭션을 바꾸려면 `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`를 각각 열어서 같은 내용을 반복 수정해야 합니다. 셸 설정은 머신·OS마다 미묘하게 달라지고, 스킬은 도구마다 따로 설치해야 합니다.
 
-셸 설정은 더 까다롭습니다. 어떤 함수나 명령어는 공통으로 사용 가능하지만, 어떤 경우에는 OS가 macOS인지 Linux인지 등에 따라 달라져야 할 수도 있습니다. 하나의 `.zshrc`에 전부 우겨넣으면 금세 복잡해지고, 머신마다 미묘하게 다른 설정을 관리하기 어려워집니다.
+이 프로젝트는 **모든 설정을 `config/` 한 폴더에 모으고, 각 도구의 원래 위치에 연결**합니다:
 
-이 프로젝트는 **모든 설정을 `config/` 한 폴더에 모으고, symlink로 각 도구의 원래 위치에 연결하기에 기존에 설정을 관리하던 방식을 그대로 유지하면서도 중복을 최소화하고 수정사항을 모든 AI 도구에, 모든 머신에 반영할 수 있습니다. .** AI 코딩 도구에서 공통으로 적용할 인스트럭션(`AGENTS.md`)은 하나의 파일로 모두 적용되도록 하되,  도구별로 달라야 하는 설정(`settings.json`, `config.toml` 등)을 분리합니다. 공통 alias와 함수는 `zshrc`에, OS별로 달라지는 부분은 `zshrc.d/macos.zsh`, `zshrc.d/linux.zsh`로 나눠서 관리합니다. `config/`라는 한 폴더 안에 모든 설정이 담겨있기에, Git이나 Syncthing으로 이 폴더만 동기화하면 여러 머신에서 동일한 환경을 유지할 수 있습니다.
+- **인스트럭션 (AGENTS.md)** — 파일 하나를 심링크로 모든 도구에 공유
+- **스킬 (SKILL.md)** — 공용 스킬은 한 벌만 두고 per-skill 심링크로 각 도구에 배포. 서드파티 스킬은 manifest 선언 + `npx skills`로 설치
+- **설정 (settings.json / config.toml)** — 심링크가 아닌 **병합**: 도구가 런타임에 머신 상태를 쓰는 파일이라, 내가 관리하는 base 키만 교체하고 나머지는 보존
+- **셸 (zshrc)** — feature-detection(guard) 기반 공통 설정 + OS별 파일 + 머신 로컬 레이어(local.zsh/secrets.zsh, 동기화 제외)
+
+여러 머신 배포는 **제어 머신 모델**입니다: 한 머신에서 편집·커밋하면 `dotfiles push`가 등록된 머신들에 git으로 배포하고 적용까지 실행합니다.
 
 ## Quick Start
 
@@ -19,91 +24,132 @@ claude
 → /setup
 ```
 
-## What `/setup` Does
+Claude Code 없이(또는 원격 머신에서):
 
-`/setup` skill을 통해 사용자 환경과 선택에 맞는 최적의 환경을 자동으로 구현할 수 있습니다.
+```bash
+git clone <framework-repo> ~/dotfiles
+git clone <config-repo> ~/dotfiles/config     # 개인 설정 (private repo)
+bash ~/dotfiles/bin/dotfiles apply
+```
+
+## `/setup` Does
+
+`/setup` skill이 환경을 분석하고 질문 몇 개 후 자동으로 설정합니다.
 
 **설치한 것을 되돌릴 수 있나요?**
-기존 설정 파일은 `dotfiles/backup/` 폴더에 홈 디렉토리 구조 그대로 보존되고, git commit까지 되므로 안전합니다. 실제 파일 대신 심링크만 생성하는 방식이라 원본이 손상되지 않습니다. dotfiles 사용을 그만두고 싶으면 `/uninstall`을 실행하세요. 설치 이전 백업과 사용 중 변경한 현재 설정을 비교해서 어떤 부분을 살릴지 물어본 뒤, 원본 복원 / 현재 설정 유지 / 병합 중 선택할 수 있습니다.
+기존 설정 파일은 `dotfiles/backup/`에 홈 디렉토리 구조 그대로 보존됩니다. 병합 방식 파일(settings.json, config.toml)은 원본이 파일로 남고 base 키만 갱신되므로 안전합니다. 되돌리려면 `/uninstall`을 실행하세요.
 
-### `/setup` 진행 순서
+## 동기화 범위 — 무엇이 머신 간 공유되고, 무엇이 로컬에 남는가
 
-1. **환경 감지** — OS, 셸, 설치된 AI 도구를 자동으로 판별합니다
-2. **선택** — 어떤 도구를 설정할지, 인스트럭션 공유 방식, 멀티 OS 여부를 물어봅니다
-3. **config 초기화** — 첫 실행이면 `templates/` → `config/`로 기본값을 복사합니다
-4. **AI 도구 셋업**
-   - 단계2에서 선택한 AI 도구 설정 (`~/.claude/`, `~/.codex/`, `~/.gemini/`)에 심링크로 연결합니다
-   - 만약 선택한 AI 도구가 아직 미설치면 설치 방법을 안내하고 설치를 제안합니다.
-5. **셸 셋업**
-   - 기존 셸 설정 파일을 분석하여 공통/OS별/프레임워크 의존 항목으로 분류합니다
-   - 각 항목이 현재 환경에서 유효한지 검증합니다 (참조 도구 설치 여부, 경로 존재 여부, OS 적합성 등)
-   - 문제가 발견되면 처리 방안(설치/제거/OS별 파일로 이동/건너뛰기)을 제시하고 선택받습니다
-   - 멀티 OS 사용 시 공통 설정과 OS별 설정을 자동 분리하여 `zshrc` + `zshrc.d/macos.zsh`, `zshrc.d/linux.zsh`로 구성합니다
-   - 최종 셸 파일을 홈 디렉토리에 심링크로 연결합니다
-6. **검증** — 문제가 있으면 자동으로 수정합니다
+원칙: **내 의도(취향·정책)는 동기화, 머신 상태(런타임 기록·자격증명·머신 경로)는 로컬.**
+설정 파일 하나에 둘이 섞여 있는 경우(settings.json, config.toml)는 병합 방식으로 키 단위 분리한다.
 
-### 영향받는 경로
+### Claude Code (`~/.claude/`)
 
-다음 중 사용자에게 해당하는 설정에만 적용됩니다. 기존 파일이 있으면 `backup/` 폴더에 보존한 뒤 심링크를 생성합니다.
+| 항목 | 동기화 | 방식 / 이유 |
+|---|:---:|---|
+| `CLAUDE.md` (글로벌 인스트럭션) | ✅ | 심링크 → `config/ai/AGENTS.md` (Codex와 공유) |
+| `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — `settings.base.json`의 키만 교체 |
+| 플러그인 (`enabledPlugins`, `extraKnownMarketplaces`) | ✅ | 선언이 base로 동기화 → 각 머신이 자동 설치 |
+| `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Claude 전용) |
+| `agents/` (서브에이전트) | ✅ | 심링크 |
+| `statusline-command.sh` | ✅ | 심링크 |
+| `keybindings.json`, `output-styles/` | ✅* | config에 두면 자동 링크 (현재 미사용) |
+| `commands/` (커스텀 슬래시 커맨드) | ✅* | config에 두면 자동 링크 (현재 미사용 — 신규 작성은 skills 권장, commands는 구 방식) |
+| `settings.json` 중 `hooks` | ❌ | 머신별 경로 의존 (훅 스크립트 위치가 머신마다 다름) |
+| `settings.json` 중 `permissions.additionalDirectories` | ❌ | 머신별 경로 |
+| `settings.local.json` | ❌ | 이름 그대로 머신 로컬 오버라이드 |
+| `~/.claude.json` | ❌ | OAuth 세션·MCP 서버 등록·프로젝트 신뢰 상태 — 런타임 상태, 도구가 자동 관리 |
+| `history.jsonl`, `projects/`, `sessions/`, plugins 캐시 | ❌ | 런타임 상태 |
 
-**AI 도구:**
+### Codex CLI (`~/.codex/`)
 
-- **Claude Code** — `~/.claude/` 내 settings.json, CLAUDE.md, skills/, agents/
-- **Codex CLI** — `~/.codex/` 내 config.toml, AGENTS.md, rules/
-- **Gemini CLI** — `~/.gemini/` 내 settings.json, GEMINI.md
+| 항목 | 동기화 | 방식 / 이유 |
+|---|:---:|---|
+| `AGENTS.md` (글로벌 인스트럭션) | ✅ | 심링크 → `config/ai/AGENTS.md` (Claude와 공유) |
+| `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, commit_attribution, `[tui]`, `[features]`, network_access | ✅ | **병합** — `config.base.toml`의 키만 교체 |
+| `rules/` (실행 정책) | ✅ | 심링크 |
+| `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용) |
+| `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신 |
+| `prompts/` (커스텀 프롬프트) | ✅* | config에 두면 자동 링크 (현재 미사용) |
+| `config.toml` 중 `[projects]` (신뢰 목록) | ❌ | 머신별 상태 — 머신마다 존재하는 프로젝트가 다름 |
+| `config.toml` 중 `[mcp_servers]` | ❌ | 명령 경로가 머신 의존 (npx 기반 서버라면 base에 올려 동기화 가능) |
+| `config.toml` 중 `[hooks.state]`, `[marketplaces]`, `[plugins]`, `[desktop]`, `notify`, `[notice]` | ❌ | 런타임 상태·머신 경로 |
+| `auth.json` | ❌ | **자격증명 — 절대 동기화 금지** |
+| `history.jsonl`, `log/`, sessions, memories | ❌ | 런타임 상태 |
+| `<profile>.config.toml` (프로파일) | 후보 | 현재 미사용 — 쓰게 되면 base 패턴으로 추가 |
 
-**셸:**
+*✅\* = 지원되지만 현재 config에 없음 — 파일을 config에 추가하는 순간부터 동기화됨.*
 
-- **zsh** — `~/.zshrc`, `~/.zshrc.d/`
-- **bash** — `~/.bashrc`, `~/.bashrc.d/`
+### 셸 (`~/.zshrc`)
+
+| 항목 | 동기화 | 방식 |
+|---|:---:|---|
+| `zshrc` (guard 기반 공통), `zshrc.d/{macos,linux}.zsh` | ✅ | 심링크 |
+| `zshrc.d/local.zsh` (머신 전용 설정) | ❌ | 의도적 로컬 실파일 |
+| `zshrc.d/secrets.zsh` (API 키·토큰) | ❌ | **절대 동기화 금지** — push 전 secret 스캔이 이중 방어 |
+
+Gemini CLI는 템플릿만 제공하며 기본 비활성입니다 (Antigravity 전환이 안정되면 재검토).
 
 ## 구조
 
-`templates/`는 기본값입니다. 첫 실행 시 `config/`로 복사되어 출발점이 됩니다.
-`config/`가 실제 설정입니다. 심링크는 여기서만 생성됩니다. Gitignored이므로 개인 설정이 공개 레포에 노출되지 않습니다.
+`templates/`는 기본값 → 첫 실행 시 `config/`로 복사됩니다.
+`config/`가 실제 설정이며 gitignored — 별도 private repo로 관리합니다.
 
 ```text
-dotfiles/
-├── .claude/
-│   └── skills/
-│       ├── setup/                     #   /setup (인스톨러)
-│       └── uninstall/                 #   /uninstall (제거/복원)
+dotfiles/                              # public: 프레임워크
+├── bin/dotfiles                       #   CLI: apply / push / status / machines
+├── .claude/skills/
+│   ├── setup/                         #   /setup (인스톨러)
+│   ├── uninstall/                     #   /uninstall (제거/복원)
+│   └── sync-setup/                    #   /sync-setup (머신 등록·배포 설정)
+├── templates/                         # 기본값 템플릿
 │
-├── templates/                         # 기본값 템플릿 (→ 설치과정에서 config/로 복사됨)
-│
-├── config/                            # 내 설정 (gitignored)
+├── config/                            # private: 내 설정 (gitignored, 별도 repo)
+│   ├── machines.toml                  #   배포 대상 머신 (components, transport)
 │   ├── ai/
+│   │   ├── AGENTS.md                  #   공유 인스트럭션 → 모든 도구
+│   │   ├── skills/                    #   공용 자작 스킬 → 모든 도구
+│   │   ├── skills-manifest.toml       #   서드파티 스킬 선언 (npx skills)
 │   │   ├── claude/
-│   │   │   ├── settings.json          #   → ~/.claude/settings.json
-│   │   │   ├── skills/                #   → ~/.claude/skills/
-│   │   │   └── agents/                #   → ~/.claude/agents/
-│   │   ├── codex/
-│   │   │   ├── config.toml            #   → ~/.codex/config.toml
-│   │   │   └── rules/                 #   → ~/.codex/rules/
-│   │   ├── gemini/
-│   │   │   └── settings.json          #   → ~/.gemini/settings.json
-│   │   ├── CLAUDE.md                  #   → ~/.claude/CLAUDE.md
-│   │   ├── AGENTS.md                  #   → ~/.codex/AGENTS.md
-│   │   └── GEMINI.md                  #   → ~/.gemini/GEMINI.md
+│   │   │   ├── settings.base.json     #   → ~/.claude/settings.json 에 병합
+│   │   │   ├── skills/                #   Claude 전용 (서브에이전트 의존)
+│   │   │   ├── agents/                #   커스텀 서브에이전트
+│   │   │   └── marketplace/           #   플러그인 마켓플레이스
+│   │   └── codex/
+│   │       ├── config.base.toml       #   → ~/.codex/config.toml 에 병합
+│   │       ├── skills/                #   Codex 전용
+│   │       └── rules/
 │   └── shell/
-│       ├── zshrc                      #   → ~/.zshrc
-│       ├── zshrc.d/                   #   → ~/.zshrc.d/
-│       ├── bashrc                     #   → ~/.bashrc
-│       └── bashrc.d/                  #   → ~/.bashrc.d/
+│       ├── zshrc                      #   guard 기반 공통 설정
+│       └── zshrc.d/                   #   macos.zsh / linux.zsh
 │
-├── backup/                            # 설치 이전 원본 (홈 디렉토리 구조 미러링)
-│   ├── .zshrc                         #   ~/.zshrc 원본
-│   ├── .claude/                       #   ~/.claude/ 원본
-│   ├── .codex/                        #   ~/.codex/ 원본
-│   └── ...
-│
-├── install.sh
+├── backup/                            # 설치 이전 원본 (gitignored)
 └── README.md
 ```
 
-## config 관리
+## 여러 머신에서 쓰기 (제어 머신 모델)
 
-`config/`는 gitignored이지만, 별도 private repo로 관리할 수 있습니다:
+```
+[제어 머신] config/ 편집 → 심링크로 즉시 로컬 반영 → git commit
+    → dotfiles push --all      # 각 머신: git pull → apply → verify
+    → dotfiles status          # 머신별 배포 상태·드리프트 확인
+```
+
+1. `/sync-setup`으로 private repo(허브)와 머신 등록(`config/machines.toml`)을 설정
+2. 각 머신에 1회 부트스트랩 (clone 2개 + `bin/dotfiles apply`)
+3. 이후 제어 머신에서 `dotfiles push`
+
+규칙:
+
+- **배포되는 것은 항상 커밋** — 로컬이 dirty면 push가 중단됩니다
+- **원격이 dirty면 건너뛰고 보고** — `--force`로만 덮어씁니다
+- **secrets는 배포하지 않음** — push 전 secret 스캔이 돌고, 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둡니다
+- GitHub 접근이 안 되는 머신은 `transport = "direct"`(ssh 직접 push)로 지정
+
+> Syncthing 병행은 지원하지 않습니다 — 실시간 파일 동기화가 원격 tree를 dirty로 만들어 git pull과 충돌합니다.
+
+## config 관리
 
 ```bash
 cd ~/dotfiles/config
@@ -113,10 +159,4 @@ git push -u origin main
 ```
 
 - **Public repo** (`dotfiles`) — 프레임워크 + 템플릿. 누구나 fork할 수 있습니다.
-- **Private repo** (`dotfiles-config`) — 개인 스킬, 에이전트, API 권한 설정을 담습니다.
-
-## 여러 머신에서 쓰기
-
-- **Git** — 각 머신에서 `config/` repo를 push/pull 하세요
-- **Syncthing** — `~/dotfiles/` 전체를 실시간 동기화합니다 (`.stignore`에 `.git` 추가)
-- **둘 다** — Syncthing으로 실시간, Git으로 히스토리를 관리하세요
+- **Private repo** (`dotfiles-config`) — 개인 스킬, 에이전트, 권한 설정, 머신 목록.

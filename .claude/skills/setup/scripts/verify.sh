@@ -33,11 +33,12 @@ is_managed() {
 }
 
 # --tools가 없으면 심링크가 걸린 도구만 자동 감지
+# (settings.json/config.toml은 병합 방식이라 심링크가 아님 → 인스트럭션 링크로 감지)
 if [ -z "$TOOLS" ]; then
   detected=""
-  is_managed "$HOME/.claude/settings.json" && detected="${detected}claude,"
-  is_managed "$HOME/.codex/config.toml" && detected="${detected}codex,"
-  is_managed "$HOME/.gemini/settings.json" && detected="${detected}gemini,"
+  is_managed "$HOME/.claude/CLAUDE.md" && detected="${detected}claude,"
+  is_managed "$HOME/.codex/AGENTS.md" && detected="${detected}codex,"
+  is_managed "$HOME/.gemini/GEMINI.md" && detected="${detected}gemini,"
   TOOLS="${detected%,}"
 fi
 
@@ -70,6 +71,41 @@ check_file_exists() {
   fi
 }
 
+# 병합 방식 설정 파일(claude settings.json, codex config.toml) 검증
+check_merged_config() {
+  local label="$1" merge_script="$2"
+  if bash "$merge_script" --check >/dev/null 2>&1; then
+    echo "  [ok] $label: managed keys in sync"
+  else
+    echo "  [fail] $label: managed keys drifted from base (run merge to fix)"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
+
+# 스킬 per-skill 심링크 검증: 소스의 각 스킬이 대상 디렉토리에 링크됐는지 확인
+check_skill_links() {
+  local dst="$1"; shift
+  local src skill name total=0 ok=0
+  for src in "$@"; do
+    [ -d "$src" ] || continue
+    for skill in "$src"/*/; do
+      skill="${skill%/}"
+      [ -f "$skill/SKILL.md" ] || continue
+      name="$(basename "$skill")"
+      total=$((total + 1))
+      if [ -L "$dst/$name" ] && [ "$(readlink "$dst/$name")" = "$skill" ]; then
+        ok=$((ok + 1))
+      else
+        echo "  [fail] skill not linked: $dst/$name"
+        ERRORS=$((ERRORS + 1))
+      fi
+    done
+  done
+  echo "  [ok] skills: $ok/$total linked in $dst"
+}
+
 # Detect shell
 case "$SHELL" in
   */zsh)  USER_SHELL="zsh" ;;
@@ -83,26 +119,27 @@ echo ""
 # AI Tools — 선택된 도구만 검증
 if echo "$TOOLS" | grep -q "claude"; then
   echo "--- claude ---"
-  check_link "$HOME/.claude/settings.json" "$CONFIG/ai/claude/settings.json" "settings.json"
+  check_merged_config "settings.json" "$SCRIPTS/merge-claude-settings.sh"
   if [ "$MODE" = "--unified" ]; then
     check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/AGENTS.md" "CLAUDE.md"
   else
     check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/claude/CLAUDE.md" "CLAUDE.md"
   fi
-  check_link "$HOME/.claude/skills" "$CONFIG/ai/claude/skills" "skills/"
+  check_skill_links "$HOME/.claude/skills" "$CONFIG/ai/skills" "$CONFIG/ai/claude/skills"
   check_link "$HOME/.claude/agents" "$CONFIG/ai/claude/agents" "agents/"
   echo ""
 fi
 
 if echo "$TOOLS" | grep -q "codex"; then
   echo "--- codex ---"
-  check_link "$HOME/.codex/config.toml" "$CONFIG/ai/codex/config.toml" "config.toml"
+  check_merged_config "config.toml" "$SCRIPTS/merge-codex-config.sh"
   if [ "$MODE" = "--unified" ]; then
     check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
   else
     check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" "AGENTS.md"
   fi
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
+  check_skill_links "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
   echo ""
 fi
 

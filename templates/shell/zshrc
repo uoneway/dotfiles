@@ -1,18 +1,33 @@
 # ============================================================
-# Oh My Zsh
+# 원칙: OS 분기보다 feature-detection(guard)을 우선한다.
+#  - 도구·경로 의존 설정은 command -v / [[ -d ]] 로 감싼다 → 어느 머신에서든 안전
+#  - 진짜 OS 고유인 것만 zshrc.d/{macos,linux}.zsh 에 둔다
+#  - 이 머신에만 필요한 것 → zshrc.d/local.zsh   (실파일, 동기화 안 됨)
+#  - API 키·토큰       → zshrc.d/secrets.zsh (실파일, 동기화 절대 금지)
+# ============================================================
+
+# ============================================================
+# Oh My Zsh (설치된 경우에만)
 # ============================================================
 export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="robbyrussell"
 
-plugins=(
-  git
-  z
-  zsh-autosuggestions
-  zsh-syntax-highlighting
-  history-substring-search
-)
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+  ZSH_THEME="robbyrussell"
 
-source $ZSH/oh-my-zsh.sh
+  plugins=(
+    git
+    z
+    history-substring-search
+  )
+
+  # 커스텀 플러그인은 설치된 것만 (미설치 시 OMZ 경고 방지)
+  for _p in zsh-autosuggestions zsh-syntax-highlighting; do
+    [[ -d "${ZSH_CUSTOM:-$ZSH/custom}/plugins/$_p" ]] && plugins+=("$_p")
+  done
+  unset _p
+
+  source "$ZSH/oh-my-zsh.sh"
+fi
 
 # ============================================================
 # OS-specific config
@@ -24,9 +39,13 @@ else
 fi
 
 # ============================================================
-# Common PATH
+# PATH & 환경변수 (guard 예시)
 # ============================================================
 export PATH="$HOME/.local/bin:$PATH"
+
+# 예시: 도구가 있을 때만 설정
+# command -v nvim >/dev/null 2>&1 && export EDITOR="nvim"
+# [[ -d "$HOME/.npm-global/bin" ]] && export PATH="$HOME/.npm-global/bin:$PATH"
 
 # ============================================================
 # Aliases
@@ -50,4 +69,9 @@ alias gd='git diff'
 # AI tools (uncomment as needed)
 # alias cc="claude"
 # alias cx="codex"
-# alias gm="gemini"
+
+# ============================================================
+# 머신 로컬 레이어 (실파일 — git/동기화 대상 아님, 마지막에 로드해 무엇이든 override 가능)
+# ============================================================
+[[ -f ~/.zshrc.d/local.zsh ]] && source ~/.zshrc.d/local.zsh
+[[ -f ~/.zshrc.d/secrets.zsh ]] && source ~/.zshrc.d/secrets.zsh

@@ -1,0 +1,273 @@
+#!/bin/bash
+# dotfiles — 멀티 머신 dotfiles 제어 CLI (Phase 1)
+#
+# 제어 머신에서 config/를 편집·커밋하고, 등록된 머신들에 배포한다.
+# 배포 = git pull(hub) 또는 git push(direct) + 원격 apply + verify. 자세한 규칙:
+#   - 배포되는 것은 항상 커밋이다 (로컬이 dirty면 push를 중단)
+#   - 원격이 dirty면 건너뛰고 보고한다 (--force로만 덮어씀)
+#
+# Usage:
+#   dotfiles apply [components]                # 이 머신에 적용 (예: shell,claude,codex)
+#   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
+#   dotfiles status [machine ...] [--all]      # 머신별 배포 상태/드리프트
+#   dotfiles machines                          # 등록된 머신 목록
+set -u
+
+DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG="$DOTFILES/config"
+SCRIPTS="$DOTFILES/.claude/skills/setup/scripts"
+MACHINES_FILE="$CONFIG/machines.toml"
+SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=6"
+
+# ---------- machines.toml ----------
+# 출력: 한 줄에 name|host|components|transport|path
+list_machines() {
+  [ -f "$MACHINES_FILE" ] || return 0
+  awk '
+  function emit() { if (name != "") print name "|" host "|" comps "|" (transport == "" ? "hub" : transport) "|" (path == "" ? "~/dotfiles" : path) }
+  /^\[machines\./ {
+    emit()
+    name = $0; sub(/^\[machines\./, "", name); sub(/\][ \t]*$/, "", name)
+    host = ""; comps = ""; transport = ""; path = ""
+    next
+  }
+  /^[ \t]*host[ \t]*=/       { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); host = v }
+  /^[ \t]*components[ \t]*=/ { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); comps = v }
+  /^[ \t]*transport[ \t]*=/  { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); transport = v }
+  /^[ \t]*path[ \t]*=/       { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); path = v }
+  END { emit() }
+  ' "$MACHINES_FILE"
+}
+
+machine_line() {
+  list_machines | awk -F'|' -v n="$1" '$1 == n { print; exit }'
+}
+
+resolve_targets() {
+  # 인자: 머신 이름들 또는 --all → name 목록 출력
+  if [ "$1" = "--all" ]; then
+    list_machines | cut -d'|' -f1
+    return
+  fi
+  local n
+  for n in "$@"; do
+    if [ -z "$(machine_line "$n")" ]; then
+      echo "[error] unknown machine: $n (dotfiles machines 로 확인)" >&2
+      return 1
+    fi
+    echo "$n"
+  done
+}
+
+# ---------- secret scan ----------
+secret_scan() {
+  # config/ 안에 리터럴 secret이 들어갔는지 push 전에 검사한다.
+  # 환경변수 참조(os.environ, $VAR)는 매치되지 않도록 따옴표로 감싼 긴 리터럴만 잡는다.
+  grep -rEn --exclude-dir=.git --exclude-dir=.stfolder \
+    -e '(api[_-]?key|secret|token|passwd|password)[A-Za-z0-9_]*[[:space:]]*[=:][[:space:]]*["'"'"'][A-Za-z0-9_/+.=-]{16,}["'"'"']' \
+    -e 'AKIA[0-9A-Z]{16}' \
+    -e 'ghp_[A-Za-z0-9]{30,}' \
+    -e 'github_pat_[A-Za-z0-9_]{30,}' \
+    -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
+    -e 'sk-[A-Za-z0-9_-]{20,}' \
+    -e 'BEGIN( RSA| EC| OPENSSH| PGP)? PRIVATE KEY' \
+    "$CONFIG" 2>/dev/null
+}
+
+# ---------- apply (로컬/원격 공용, 무인 실행) ----------
+cmd_apply() {
+  local comps="${1:-}"
+  if [ -z "$comps" ]; then
+    # 미지정 시 config 내용 기반 자동 감지
+    comps="shell"
+    [ -f "$CONFIG/ai/claude/settings.base.json" ] && comps="$comps,claude"
+    [ -f "$CONFIG/ai/codex/config.base.toml" ] && comps="$comps,codex"
+    [ -f "$CONFIG/ai/gemini/settings.json" ] && [ -d "$HOME/.gemini" ] && comps="$comps,gemini"
+  fi
+
+  # 인스트럭션 모드 감지: 도구별 파일이 있으면 separate, 없으면 unified
+  local mode="--unified"
+  [ -f "$CONFIG/ai/claude/CLAUDE.md" ] && mode="--separate"
+
+  echo "=== dotfiles apply (components: $comps, mode: ${mode#--}) ==="
+  local rc=0 c
+  for c in $(echo "$comps" | tr ',' ' '); do
+    case "$c" in
+      shell)
+        bash "$SCRIPTS/link-shell.sh" "$(basename "${SHELL:-/bin/zsh}")" || rc=1 ;;
+      claude|codex|gemini)
+        bash "$SCRIPTS/link-tool.sh" "$c" "$mode" || rc=1 ;;
+      *)
+        echo "  [warn] unknown component: $c" ;;
+    esac
+  done
+
+  # 서드파티 스킬 (네트워크 필요 — 실패해도 계속)
+  bash "$SCRIPTS/install-manifest-skills.sh" || true
+
+  # CLI를 PATH에 노출
+  if [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin"; then
+    ln -sfn "$DOTFILES/bin/dotfiles" "$HOME/.local/bin/dotfiles"
+  fi
+
+  echo ""
+  bash "$SCRIPTS/verify.sh" $mode --tools "$(echo "$comps" | sed 's/shell,\{0,1\}//')" || rc=1
+  return $rc
+}
+
+# ---------- push ----------
+cmd_push() {
+  local force=false skip_scan=false
+  local names=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force) force=true ;;
+      --skip-secret-scan) skip_scan=true ;;
+      --all) names+=("--all") ;;
+      -*) echo "[error] unknown flag: $1" >&2; return 1 ;;
+      *) names+=("$1") ;;
+    esac
+    shift
+  done
+  if [ ${#names[@]} -eq 0 ]; then
+    echo "Usage: dotfiles push <machine ...|--all> [--force] [--skip-secret-scan]" >&2
+    return 1
+  fi
+  local targets
+  targets="$(resolve_targets "${names[@]}")" || return 1
+  [ -n "$targets" ] || { echo "[error] no machines registered in machines.toml" >&2; return 1; }
+
+  # 0) secret 스캔
+  if ! $skip_scan; then
+    local hits
+    hits="$(secret_scan || true)"
+    if [ -n "$hits" ]; then
+      echo "[abort] config/ 에서 secret 의심 항목 발견 — push 중단:"
+      echo "$hits" | head -10 | sed 's/^/  /'
+      echo "  (오탐이 확실하면 --skip-secret-scan)"
+      return 1
+    fi
+  fi
+
+  # 1) 로컬은 커밋되어 있어야 한다 (배포 = 커밋 원칙)
+  local repo dirty_abort=false
+  for repo in "$DOTFILES" "$CONFIG"; do
+    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+      echo "[abort] uncommitted changes in $repo — 커밋 후 push 하세요"
+      dirty_abort=true
+    fi
+  done
+  $dirty_abort && return 1
+
+  # 2) 허브(origin)로 push
+  echo "--- pushing to hub ---"
+  git -C "$DOTFILES" push origin HEAD || { echo "[error] framework push 실패"; return 1; }
+  git -C "$CONFIG" push origin HEAD || { echo "[error] config push 실패"; return 1; }
+
+  # 3) 머신별 배포
+  local n line host comps transport path summary=""
+  for n in $targets; do
+    line="$(machine_line "$n")"
+    host="$(echo "$line" | cut -d'|' -f2)"
+    comps="$(echo "$line" | cut -d'|' -f3)"
+    transport="$(echo "$line" | cut -d'|' -f4)"
+    path="$(echo "$line" | cut -d'|' -f5)"
+    echo ""
+    echo "--- $n ($host, $transport) ---"
+
+    local pull_rc=0
+    if [ "$transport" = "direct" ]; then
+      # 제어 머신 → 원격으로 직접 push (원격은 receive.denyCurrentBranch=updateInstead 필요)
+      git -C "$DOTFILES" push -q "$host:$path" HEAD || pull_rc=1
+      git -C "$CONFIG" push -q "$host:$path/config" HEAD || pull_rc=1
+      [ $pull_rc -ne 0 ] && echo "  [drift] direct push 거부됨 (원격 dirty 또는 미설정)"
+    else
+      # hub: 원격이 GitHub에서 pull
+      local pull_cmd="git -C $path pull --ff-only && git -C $path/config pull --ff-only"
+      if $force; then
+        pull_cmd="git -C $path fetch origin && git -C $path reset --hard '@{upstream}' && git -C $path/config fetch origin && git -C $path/config reset --hard '@{upstream}'"
+      else
+        # dirty 체크 → report-only
+        local dirty
+        dirty="$(ssh $SSH_OPTS "$host" "git -C $path status --porcelain; git -C $path/config status --porcelain" 2>/dev/null)"
+        if [ -n "$dirty" ]; then
+          echo "  [drift] 원격에 커밋 안 된 변경 있음 — 건너뜀 (--force로 덮어쓰기 가능)"
+          echo "$dirty" | head -5 | sed 's/^/    /'
+          summary="$summary\n  $n: DRIFT (skipped)"
+          continue
+        fi
+      fi
+      ssh $SSH_OPTS "$host" "$pull_cmd" || pull_rc=1
+    fi
+
+    if [ $pull_rc -ne 0 ]; then
+      summary="$summary\n  $n: PULL FAILED"
+      continue
+    fi
+
+    # 원격 apply + verify
+    if ssh $SSH_OPTS "$host" "bash $path/bin/dotfiles apply $comps"; then
+      summary="$summary\n  $n: OK ($comps)"
+    else
+      summary="$summary\n  $n: APPLY/VERIFY FAILED"
+    fi
+  done
+
+  echo ""
+  echo "=== push summary ==="
+  printf "%b\n" "$summary" | sed '/^$/d'
+}
+
+# ---------- status ----------
+cmd_status() {
+  local names=("$@")
+  [ ${#names[@]} -eq 0 ] && names=("--all")
+  local targets
+  targets="$(resolve_targets "${names[@]}")" || return 1
+  [ -n "$targets" ] || { echo "[error] no machines registered in machines.toml" >&2; return 1; }
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  trap 'rm -rf "$tmpdir"' EXIT
+
+  # 로컬(제어 머신) 상태
+  echo "control: fw=$(git -C "$DOTFILES" rev-parse --short HEAD 2>/dev/null) cfg=$(git -C "$CONFIG" rev-parse --short HEAD 2>/dev/null)$([ -n "$(git -C "$CONFIG" status --porcelain)" ] && echo ' [dirty]')"
+  echo ""
+
+  local n line host path
+  for n in $targets; do
+    line="$(machine_line "$n")"
+    host="$(echo "$line" | cut -d'|' -f2)"
+    path="$(echo "$line" | cut -d'|' -f5)"
+    (
+      out="$(ssh $SSH_OPTS "$host" "
+        fw=\$(git -C $path rev-parse --short HEAD 2>/dev/null || echo '?')
+        cfg=\$(git -C $path/config rev-parse --short HEAD 2>/dev/null || echo '?')
+        d1=\$(git -C $path status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+        d2=\$(git -C $path/config status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+        echo \"fw=\$fw cfg=\$cfg dirty=\$((d1+d2))\"
+      " 2>/dev/null)"
+      if [ -n "$out" ]; then
+        echo "$n ($host): $out"
+      else
+        echo "$n ($host): UNREACHABLE"
+      fi
+    ) > "$tmpdir/$n" &
+  done
+  wait
+  for n in $targets; do
+    cat "$tmpdir/$n"
+  done
+}
+
+# ---------- main ----------
+case "${1:-}" in
+  apply)    shift; cmd_apply "$@" ;;
+  push)     shift; cmd_push "$@" ;;
+  status)   shift; cmd_status "$@" ;;
+  machines) list_machines | awk -F'|' '{ printf "%-16s host=%-28s components=%-24s transport=%-7s path=%s\n", $1, $2, $3, $4, $5 }' ;;
+  *)
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac

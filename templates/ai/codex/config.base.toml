@@ -1,0 +1,11 @@
+# Codex CLI 공유 설정 (base)
+# 여기 정의된 키만 merge-codex-config.sh가 ~/.codex/config.toml에 교체·추가한다.
+# 머신별 상태([projects.*], [hooks.state.*], [plugins.*], [mcp_servers.*] 등)는
+# 각 머신의 config.toml에 남는다. 원하는 공유 키를 자유롭게 추가하면 된다.
+
+model = "gpt-5.2-codex"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[tui]
+notifications = true

@@ -1,0 +1,20 @@
+# 배포 대상 머신 선언 — bin/dotfiles push/status가 읽는다.
+# 이 파일은 config/에 있으며 private repo로만 동기화된다 (호스트명 노출 주의).
+#
+# [machines.<이름>]
+# host = "ssh-호스트"            # ~/.ssh/config의 Host 별칭 또는 user@host
+# components = "shell,codex"     # 이 머신에 적용할 컴포넌트 (shell, claude, codex, gemini)
+# transport = "hub"              # hub: 원격이 GitHub에서 git pull (기본값)
+#                                # direct: 제어 머신이 git push (GitHub 접근 불가 머신용,
+#                                #   원격에서 1회: git config receive.denyCurrentBranch updateInstead)
+# path = "~/dotfiles"            # 원격의 dotfiles 경로 (기본값 ~/dotfiles)
+#
+# 예시:
+# [machines.work-server]
+# host = "link.rtzr.ai"
+# components = "shell,codex"
+#
+# [machines.gpu-common]
+# host = "reaper-common.rtzr.ai"
+# components = "shell"
+# transport = "direct"
