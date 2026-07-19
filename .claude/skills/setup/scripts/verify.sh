@@ -106,12 +106,15 @@ check_skill_links() {
   echo "  [ok] skills: $ok/$total linked in $dst"
 }
 
-# Detect shell
-case "$SHELL" in
-  */zsh)  USER_SHELL="zsh" ;;
-  */bash) USER_SHELL="bash" ;;
-  *)      USER_SHELL="zsh" ;;
-esac
+# Detect shell — zsh가 설치돼 있으면 zsh 기준 (apply와 동일 규칙)
+if command -v zsh >/dev/null 2>&1; then
+  USER_SHELL="zsh"
+else
+  case "$SHELL" in
+    */bash) USER_SHELL="bash" ;;
+    *)      USER_SHELL="zsh" ;;
+  esac
+fi
 
 echo "=== VERIFY (mode: ${MODE#--}, tools: ${TOOLS:-none}) ==="
 echo ""

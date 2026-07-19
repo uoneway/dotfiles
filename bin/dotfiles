@@ -104,7 +104,11 @@ cmd_apply() {
   for c in $(echo "$comps" | tr ',' ' '); do
     case "$c" in
       shell)
-        bash "$SCRIPTS/link-shell.sh" "$(basename "${SHELL:-/bin/zsh}")" || rc=1 ;;
+        # zsh가 설치돼 있으면 로그인 셸과 무관하게 zsh 설정을 적용
+        # (서버는 chsh 불가로 로그인 셸이 bash인 경우가 많음 — link-shell이 전환 블록 처리)
+        local sh_type
+        if command -v zsh >/dev/null 2>&1; then sh_type=zsh; else sh_type="$(basename "${SHELL:-/bin/bash}")"; fi
+        bash "$SCRIPTS/link-shell.sh" "$sh_type" || rc=1 ;;
       claude|codex|gemini)
         bash "$SCRIPTS/link-tool.sh" "$c" "$mode" || rc=1 ;;
       *)

@@ -35,6 +35,24 @@ if [ "$SHELL_TYPE" = "zsh" ]; then
         [ -f "$f" ] && backup_and_link "$f" "$HOME/.zshrc.d/$(basename "$f")"
       done
     fi
+    # 로그인 셸이 zsh가 아니면(chsh 불가 서버 등) bashrc에 인터랙티브 전용 전환 블록 추가.
+    # $- 가드로 비대화형(ssh 원격 명령 등)에는 절대 발동하지 않는다.
+    if [ "$(basename "${SHELL:-}")" != "zsh" ] && command -v zsh >/dev/null 2>&1; then
+      if ! grep -q 'dotfiles: exec zsh' "$HOME/.bashrc" 2>/dev/null; then
+        cat >> "$HOME/.bashrc" <<'ZSHBLOCK'
+
+# >>> dotfiles: exec zsh (로그인 셸 변경 불가 환경에서 zsh 사용, DOTFILES_NO_ZSH=1로 우회) >>>
+case $- in *i*)
+  if [ -z "${DOTFILES_NO_ZSH:-}" ] && command -v zsh >/dev/null 2>&1; then
+    export SHELL="$(command -v zsh)"
+    exec zsh
+  fi
+;; esac
+# <<< dotfiles: exec zsh <<<
+ZSHBLOCK
+        echo "  [ok] ~/.bashrc에 zsh 전환 블록 추가 (인터랙티브 전용)"
+      fi
+    fi
   else
     echo "  [skip] config/shell/zshrc not found"
   fi
