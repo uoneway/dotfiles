@@ -236,9 +236,9 @@ cmd_status() {
   targets="$(resolve_targets "${names[@]}")" || return 1
   [ -n "$targets" ] || { echo "[error] no machines registered in machines.toml" >&2; return 1; }
 
-  local tmpdir
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  STATUS_TMPDIR="$(mktemp -d)"
+  trap 'rm -rf "${STATUS_TMPDIR:-}"' EXIT
+  local tmpdir="$STATUS_TMPDIR"
 
   # 로컬(제어 머신) 상태
   echo "control: fw=$(git -C "$DOTFILES" rev-parse --short HEAD 2>/dev/null) cfg=$(git -C "$CONFIG" rev-parse --short HEAD 2>/dev/null)$([ -n "$(git -C "$CONFIG" status --porcelain)" ] && echo ' [dirty]')"
