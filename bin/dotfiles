@@ -9,7 +9,7 @@
 # Usage:
 #   dotfiles apply [components]                # 이 머신에 적용 (예: shell,claude,codex)
 #   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
-#   dotfiles status [machine ...] [--all]      # 머신별 배포 상태/드리프트
+#   dotfiles status [machine ...] [--all] [--json]  # 머신별 배포 상태/드리프트
 #   dotfiles machines                          # 등록된 머신 목록
 set -u
 
@@ -27,7 +27,12 @@ DOTFILES="$(cd "$(dirname "$SELF")/.." && pwd)"
 CONFIG="$DOTFILES/config"
 SCRIPTS="$DOTFILES/.claude/skills/setup/scripts"
 MACHINES_FILE="$CONFIG/machines.toml"
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=6"
+
+# ssh 연결 재사용 — 같은 머신에 반복 접속(push의 dirty-check/pull/apply, 반복 status 호출)이
+# ProxyJump 홉을 매번 새로 열지 않도록 60초간 소켓을 유지한다
+SSH_CM_DIR="$HOME/.ssh/dotfiles-cm"
+mkdir -p "$SSH_CM_DIR" 2>/dev/null && chmod 700 "$SSH_CM_DIR" 2>/dev/null
+SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=6 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=$SSH_CM_DIR/%C"
 
 # ---------- machines.toml ----------
 # 출력: 한 줄에 name|host|components|transport|path
@@ -277,11 +282,40 @@ echo "FW_BEHIND=${fw_behind:-0}"
 echo "CFG_BEHIND=${cfg_behind:-0}"
 echo "APPLIED_FW=$applied_fw"
 echo "APPLIED_CFG=$applied_cfg"
+echo "APPLIED_TS=${applied_ts:-}"
 REMOTE_EOF
 }
 
+_relative_time() {
+  # $1: epoch seconds → "3d ago" / "5h ago" / "12m ago" / "just now"
+  local ts="$1" now diff
+  [ -z "$ts" ] && return
+  now="$(date +%s)"
+  diff=$(( now - ts ))
+  [ "$diff" -lt 0 ] && diff=0
+  if [ "$diff" -lt 60 ]; then
+    echo "just now"
+  elif [ "$diff" -lt 3600 ]; then
+    echo "$(( diff / 60 ))m ago"
+  elif [ "$diff" -lt 86400 ]; then
+    echo "$(( diff / 3600 ))h ago"
+  else
+    echo "$(( diff / 86400 ))d ago"
+  fi
+}
+
+_json_or_null() { [ -z "$1" ] && echo "null" || echo "\"$1\""; }
+_json_num_or_null() { [ -z "$1" ] && echo "null" || echo "$1"; }
+
 cmd_status() {
-  local names=("$@")
+  local json=false
+  local names=() a
+  for a in "$@"; do
+    case "$a" in
+      --json) json=true ;;
+      *) names+=("$a") ;;
+    esac
+  done
   [ ${#names[@]} -eq 0 ] && names=("--all")
   local targets
   targets="$(resolve_targets "${names[@]}")" || return 1
@@ -295,17 +329,24 @@ cmd_status() {
   local control_fw control_cfg
   control_fw="$(git -C "$DOTFILES" rev-parse HEAD 2>/dev/null)"
   control_cfg="$(git -C "$CONFIG" rev-parse HEAD 2>/dev/null)"
-  local control_dirty=""
-  [ -n "$(git -C "$DOTFILES" status --porcelain 2>/dev/null)" ] && control_dirty=" [dirty]"
-  [ -n "$(git -C "$CONFIG" status --porcelain 2>/dev/null)" ] && control_dirty=" [dirty]"
-  echo "control: fw=${control_fw:0:7} cfg=${control_cfg:0:7}${control_dirty}"
+  local control_dirty=false
+  { [ -n "$(git -C "$DOTFILES" status --porcelain 2>/dev/null)" ] || [ -n "$(git -C "$CONFIG" status --porcelain 2>/dev/null)" ]; } && control_dirty=true
 
   local fw_ahead cfg_ahead
   fw_ahead="$(git -C "$DOTFILES" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)"
   cfg_ahead="$(git -C "$CONFIG" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)"
-  [ "${fw_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ dotfiles: origin에 push 안 된 커밋 ${fw_ahead}개"
-  [ "${cfg_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ config: origin에 push 안 된 커밋 ${cfg_ahead}개"
-  echo ""
+
+  if $json; then
+    printf '{"machine":"control","fw_sha":"%s","cfg_sha":"%s","dirty":%s,"fw_ahead":%s,"cfg_ahead":%s}\n' \
+      "$control_fw" "$control_cfg" "$control_dirty" "${fw_ahead:-0}" "${cfg_ahead:-0}"
+  else
+    local dirty_label=""
+    $control_dirty && dirty_label=" [dirty]"
+    echo "control: fw=${control_fw:0:7} cfg=${control_cfg:0:7}${dirty_label}"
+    [ "${fw_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ dotfiles: origin에 push 안 된 커밋 ${fw_ahead}개"
+    [ "${cfg_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ config: origin에 push 안 된 커밋 ${cfg_ahead}개"
+    echo ""
+  fi
 
   local n line host path
   for n in $targets; do
@@ -325,30 +366,37 @@ cmd_status() {
     [ ${#n} -gt $name_w ] && name_w=${#n}
   done
 
-  printf "%-${name_w}s  %-24s  %s\n" "MACHINE" "STATE" "APPLIED"
+  $json || printf "%-${name_w}s  %-24s  %s\n" "MACHINE" "STATE" "APPLIED"
+
   for n in $targets; do
-    local rc out err state applied
+    line="$(machine_line "$n")"
+    host="$(echo "$line" | cut -d'|' -f2)"
+
+    local rc out err
     rc="$(cat "$tmpdir/$n.rc" 2>/dev/null || echo 255)"
     out="$(cat "$tmpdir/$n.out" 2>/dev/null)"
     err="$(cat "$tmpdir/$n.err" 2>/dev/null)"
 
+    local state_code state_label reason="" fw_sha="" cfg_sha="" \
+          applied_code="" applied_label="-" applied_ts="" behind_total=0 dirty_bool=false
+
     if [ "$rc" != "0" ] || [ -z "$out" ]; then
-      local reason="unknown"
+      state_code="unreachable"
+      reason="unknown"
       if echo "$err" | grep -qi 'permission denied'; then reason="auth"
       elif echo "$err" | grep -qiE 'timed out'; then reason="timeout"
       elif echo "$err" | grep -qi 'could not resolve hostname'; then reason="dns"
       elif echo "$err" | grep -qi 'connection refused'; then reason="refused"
       fi
-      state="✗ unreachable (${reason})"
-      applied="-"
+      state_label="✗ unreachable (${reason})"
     else
       local bootstrap
       bootstrap="$(echo "$out" | awk -F= '$1=="BOOTSTRAP"{print $2}')"
       if [ "$bootstrap" = "no" ]; then
-        state="○ not bootstrapped"
-        applied="-"
+        state_code="not_bootstrapped"
+        state_label="○ not bootstrapped"
       else
-        local fw_sha cfg_sha fw_dirty cfg_dirty fw_behind cfg_behind applied_fw applied_cfg
+        local fw_dirty cfg_dirty fw_behind cfg_behind applied_fw applied_cfg
         fw_sha="$(echo "$out" | awk -F= '$1=="FW_SHA"{print $2}')"
         cfg_sha="$(echo "$out" | awk -F= '$1=="CFG_SHA"{print $2}')"
         fw_dirty="$(echo "$out" | awk -F= '$1=="FW_DIRTY"{print $2}')"
@@ -357,29 +405,49 @@ cmd_status() {
         cfg_behind="$(echo "$out" | awk -F= '$1=="CFG_BEHIND"{print $2}')"
         applied_fw="$(echo "$out" | awk -F= '$1=="APPLIED_FW"{print $2}')"
         applied_cfg="$(echo "$out" | awk -F= '$1=="APPLIED_CFG"{print $2}')"
+        applied_ts="$(echo "$out" | awk -F= '$1=="APPLIED_TS"{print $2}')"
 
         local dirty_total=$(( ${fw_dirty:-0} + ${cfg_dirty:-0} ))
-        local behind_total=$(( ${fw_behind:-0} + ${cfg_behind:-0} ))
+        behind_total=$(( ${fw_behind:-0} + ${cfg_behind:-0} ))
+        [ "$dirty_total" -gt 0 ] && dirty_bool=true
 
-        if [ "$dirty_total" -gt 0 ]; then
-          state="⚠ drift"
+        if $dirty_bool; then
+          state_code="drift"; state_label="⚠ drift"
         elif [ "$behind_total" -gt 0 ]; then
-          state="↓ behind ${behind_total}"
+          state_code="behind"; state_label="↓ behind ${behind_total}"
         else
-          state="✓ synced"
+          state_code="synced"; state_label="✓ synced"
         fi
 
+        local relative=""
+        [ -n "$applied_ts" ] && relative="$(_relative_time "$applied_ts")"
+
         if [ -z "$applied_fw" ]; then
-          applied="? never"
+          applied_code="never"
+          applied_label="? never"
         elif [ "$applied_fw" = "$fw_sha" ] && [ "$applied_cfg" = "$cfg_sha" ]; then
-          applied="✓ ok"
+          applied_code="ok"
+          applied_label="✓ ok"
+          [ -n "$relative" ] && applied_label="✓ ok (${relative})"
         else
-          applied="⚠ stale"
+          applied_code="stale"
+          applied_label="⚠ stale"
+          [ -n "$relative" ] && applied_label="⚠ stale (last applied ${relative})"
         fi
       fi
     fi
 
-    printf "%-${name_w}s  %-24s  %s\n" "$n" "$state" "$applied"
+    if $json; then
+      printf '{"machine":"%s","host":"%s","state":"%s","reason":%s,"behind":%s,"dirty":%s,"fw_sha":%s,"cfg_sha":%s,"applied":%s,"applied_ts":%s}\n' \
+        "$n" "$host" "$state_code" \
+        "$(_json_or_null "$reason")" \
+        "$behind_total" "$dirty_bool" \
+        "$(_json_or_null "$fw_sha")" "$(_json_or_null "$cfg_sha")" \
+        "$(_json_or_null "$applied_code")" \
+        "$(_json_num_or_null "$applied_ts")"
+    else
+      printf "%-${name_w}s  %-24s  %s\n" "$n" "$state_label" "$applied_label"
+    fi
   done
 }
 
