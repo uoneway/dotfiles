@@ -126,6 +126,17 @@ cmd_apply() {
 
   echo ""
   bash "$SCRIPTS/verify.sh" $mode --tools "$(echo "$comps" | sed 's/shell,\{0,1\}//')" || rc=1
+
+  # apply 성공 시에만 기록 — status가 "pull됐는데 apply 실패"를 감지하는 근거
+  if [ $rc -eq 0 ]; then
+    local state_dir="$HOME/.local/state/dotfiles"
+    mkdir -p "$state_dir" 2>/dev/null
+    printf '%s %s %s\n' \
+      "$(git -C "$DOTFILES" rev-parse HEAD 2>/dev/null)" \
+      "$(git -C "$CONFIG" rev-parse HEAD 2>/dev/null)" \
+      "$(date +%s)" > "$state_dir/applied"
+  fi
+
   return $rc
 }
 
@@ -233,6 +244,42 @@ cmd_push() {
 }
 
 # ---------- status ----------
+# 원격에서 단일 ssh 호출로 필요한 모든 정보를 모아온다 (반복 왕복 없음)
+_status_remote_script() {
+  cat <<'REMOTE_EOF'
+path="$1"
+case "$path" in
+  "~"*) path="$HOME${path#\~}" ;;
+esac
+if [ ! -d "$path/.git" ]; then
+  echo "BOOTSTRAP=no"
+  exit 0
+fi
+echo "BOOTSTRAP=yes"
+fw_sha=$(git -C "$path" rev-parse HEAD 2>/dev/null)
+cfg_sha=$(git -C "$path/config" rev-parse HEAD 2>/dev/null)
+fw_dirty=$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+cfg_dirty=$(git -C "$path/config" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+git -C "$path" fetch -q origin 2>/dev/null
+git -C "$path/config" fetch -q origin 2>/dev/null
+fw_behind=$(git -C "$path" rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo 0)
+cfg_behind=$(git -C "$path/config" rev-list --count 'HEAD..@{upstream}' 2>/dev/null || echo 0)
+applied_file="$HOME/.local/state/dotfiles/applied"
+applied_fw=""; applied_cfg=""
+if [ -f "$applied_file" ]; then
+  read -r applied_fw applied_cfg applied_ts < "$applied_file"
+fi
+echo "FW_SHA=$fw_sha"
+echo "CFG_SHA=$cfg_sha"
+echo "FW_DIRTY=${fw_dirty:-0}"
+echo "CFG_DIRTY=${cfg_dirty:-0}"
+echo "FW_BEHIND=${fw_behind:-0}"
+echo "CFG_BEHIND=${cfg_behind:-0}"
+echo "APPLIED_FW=$applied_fw"
+echo "APPLIED_CFG=$applied_cfg"
+REMOTE_EOF
+}
+
 cmd_status() {
   local names=("$@")
   [ ${#names[@]} -eq 0 ] && names=("--all")
@@ -244,8 +291,20 @@ cmd_status() {
   trap 'rm -rf "${STATUS_TMPDIR:-}"' EXIT
   local tmpdir="$STATUS_TMPDIR"
 
-  # 로컬(제어 머신) 상태
-  echo "control: fw=$(git -C "$DOTFILES" rev-parse --short HEAD 2>/dev/null) cfg=$(git -C "$CONFIG" rev-parse --short HEAD 2>/dev/null)$([ -n "$(git -C "$CONFIG" status --porcelain)" ] && echo ' [dirty]')"
+  # 로컬(제어 머신) 상태 — dirty 여부 + origin에 push 안 된 커밋 경고
+  local control_fw control_cfg
+  control_fw="$(git -C "$DOTFILES" rev-parse HEAD 2>/dev/null)"
+  control_cfg="$(git -C "$CONFIG" rev-parse HEAD 2>/dev/null)"
+  local control_dirty=""
+  [ -n "$(git -C "$DOTFILES" status --porcelain 2>/dev/null)" ] && control_dirty=" [dirty]"
+  [ -n "$(git -C "$CONFIG" status --porcelain 2>/dev/null)" ] && control_dirty=" [dirty]"
+  echo "control: fw=${control_fw:0:7} cfg=${control_cfg:0:7}${control_dirty}"
+
+  local fw_ahead cfg_ahead
+  fw_ahead="$(git -C "$DOTFILES" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)"
+  cfg_ahead="$(git -C "$CONFIG" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)"
+  [ "${fw_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ dotfiles: origin에 push 안 된 커밋 ${fw_ahead}개"
+  [ "${cfg_ahead:-0}" -gt 0 ] 2>/dev/null && echo "  ⚠ config: origin에 push 안 된 커밋 ${cfg_ahead}개"
   echo ""
 
   local n line host path
@@ -254,23 +313,73 @@ cmd_status() {
     host="$(echo "$line" | cut -d'|' -f2)"
     path="$(echo "$line" | cut -d'|' -f5)"
     (
-      out="$(ssh $SSH_OPTS "$host" "
-        fw=\$(git -C $path rev-parse --short HEAD 2>/dev/null || echo '?')
-        cfg=\$(git -C $path/config rev-parse --short HEAD 2>/dev/null || echo '?')
-        d1=\$(git -C $path status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-        d2=\$(git -C $path/config status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-        echo \"fw=\$fw cfg=\$cfg dirty=\$((d1+d2))\"
-      " 2>/dev/null)"
-      if [ -n "$out" ]; then
-        echo "$n ($host): $out"
-      else
-        echo "$n ($host): UNREACHABLE"
-      fi
-    ) > "$tmpdir/$n" &
+      ssh $SSH_OPTS "$host" bash -s -- "$path" > "$tmpdir/$n.out" 2>"$tmpdir/$n.err" < <(_status_remote_script)
+      echo "$?" > "$tmpdir/$n.rc"
+    ) &
   done
   wait
+
+  # MACHINE 컬럼 너비 (최소 "MACHINE" 길이)
+  local name_w=7
   for n in $targets; do
-    cat "$tmpdir/$n"
+    [ ${#n} -gt $name_w ] && name_w=${#n}
+  done
+
+  printf "%-${name_w}s  %-24s  %s\n" "MACHINE" "STATE" "APPLIED"
+  for n in $targets; do
+    local rc out err state applied
+    rc="$(cat "$tmpdir/$n.rc" 2>/dev/null || echo 255)"
+    out="$(cat "$tmpdir/$n.out" 2>/dev/null)"
+    err="$(cat "$tmpdir/$n.err" 2>/dev/null)"
+
+    if [ "$rc" != "0" ] || [ -z "$out" ]; then
+      local reason="unknown"
+      if echo "$err" | grep -qi 'permission denied'; then reason="auth"
+      elif echo "$err" | grep -qiE 'timed out'; then reason="timeout"
+      elif echo "$err" | grep -qi 'could not resolve hostname'; then reason="dns"
+      elif echo "$err" | grep -qi 'connection refused'; then reason="refused"
+      fi
+      state="✗ unreachable (${reason})"
+      applied="-"
+    else
+      local bootstrap
+      bootstrap="$(echo "$out" | awk -F= '$1=="BOOTSTRAP"{print $2}')"
+      if [ "$bootstrap" = "no" ]; then
+        state="○ not bootstrapped"
+        applied="-"
+      else
+        local fw_sha cfg_sha fw_dirty cfg_dirty fw_behind cfg_behind applied_fw applied_cfg
+        fw_sha="$(echo "$out" | awk -F= '$1=="FW_SHA"{print $2}')"
+        cfg_sha="$(echo "$out" | awk -F= '$1=="CFG_SHA"{print $2}')"
+        fw_dirty="$(echo "$out" | awk -F= '$1=="FW_DIRTY"{print $2}')"
+        cfg_dirty="$(echo "$out" | awk -F= '$1=="CFG_DIRTY"{print $2}')"
+        fw_behind="$(echo "$out" | awk -F= '$1=="FW_BEHIND"{print $2}')"
+        cfg_behind="$(echo "$out" | awk -F= '$1=="CFG_BEHIND"{print $2}')"
+        applied_fw="$(echo "$out" | awk -F= '$1=="APPLIED_FW"{print $2}')"
+        applied_cfg="$(echo "$out" | awk -F= '$1=="APPLIED_CFG"{print $2}')"
+
+        local dirty_total=$(( ${fw_dirty:-0} + ${cfg_dirty:-0} ))
+        local behind_total=$(( ${fw_behind:-0} + ${cfg_behind:-0} ))
+
+        if [ "$dirty_total" -gt 0 ]; then
+          state="⚠ drift"
+        elif [ "$behind_total" -gt 0 ]; then
+          state="↓ behind ${behind_total}"
+        else
+          state="✓ synced"
+        fi
+
+        if [ -z "$applied_fw" ]; then
+          applied="? never"
+        elif [ "$applied_fw" = "$fw_sha" ] && [ "$applied_cfg" = "$cfg_sha" ]; then
+          applied="✓ ok"
+        else
+          applied="⚠ stale"
+        fi
+      fi
+    fi
+
+    printf "%-${name_w}s  %-24s  %s\n" "$n" "$state" "$applied"
   done
 }
 
