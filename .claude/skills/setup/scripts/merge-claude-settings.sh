@@ -58,6 +58,7 @@ $CHECK && MODE="check"
 python3 - "$BASE" "$TARGET" "$MODE" <<'PYEOF'
 import difflib
 import json
+import os
 import shutil
 import sys
 
@@ -72,10 +73,25 @@ def merge(base, target):
         return out
     return base
 
+def expand_marketplace_paths(cfg):
+    """extraKnownMarketplaces[].source.path의 `~`를 절대 경로로 펼친다.
+
+    Claude Code는 이 필드의 `~`를 확장하지 않고 cwd 기준 상대 경로로 해석한다
+    (예: cwd가 /home/x/proj면 /home/x/proj/~/dotfiles/... 를 찾다가 실패).
+    base에는 머신 무관하게 `~/...`로 적어두고, 병합 시점에 그 머신의 HOME으로 펼친다.
+    settings.json은 동기화 대상이 아닌 로컬 실파일이므로 절대 경로가 들어가도 안전하다.
+    """
+    for entry in (cfg.get("extraKnownMarketplaces") or {}).values():
+        source = entry.get("source") if isinstance(entry, dict) else None
+        if isinstance(source, dict) and isinstance(source.get("path"), str):
+            source["path"] = os.path.expanduser(source["path"])
+
 with open(base_path) as f:
     base = json.load(f)
 with open(target_path) as f:
     target = json.load(f)
+
+expand_marketplace_paths(base)
 
 merged = merge(base, target)
 
