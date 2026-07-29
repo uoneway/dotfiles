@@ -55,14 +55,14 @@ fi
 MODE="write"
 $CHECK && MODE="check"
 
-python3 - "$BASE" "$TARGET" "$MODE" <<'PYEOF'
+python3 - "$BASE" "$TARGET" "$MODE" "$DOTFILES" <<'PYEOF'
 import difflib
 import json
 import os
 import shutil
 import sys
 
-base_path, target_path, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+base_path, target_path, mode, dotfiles_root = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 def merge(base, target):
     """base 키가 이긴다. object는 재귀 병합, 배열·스칼라는 base로 통째 교체."""
@@ -73,25 +73,35 @@ def merge(base, target):
         return out
     return base
 
-def expand_marketplace_paths(cfg):
+def expand_marketplace_paths(cfg, dotfiles_root):
     """extraKnownMarketplaces[].source.path의 `~`를 절대 경로로 펼친다.
 
     Claude Code는 이 필드의 `~`를 확장하지 않고 cwd 기준 상대 경로로 해석한다
     (예: cwd가 /home/x/proj면 /home/x/proj/~/dotfiles/... 를 찾다가 실패).
-    base에는 머신 무관하게 `~/...`로 적어두고, 병합 시점에 그 머신의 HOME으로 펼친다.
+    base에는 머신 무관하게 `~/dotfiles/...`로 적어두고, 병합 시점에 그 머신의
+    실제 dotfiles 루트로 치환한다 — machines.toml의 커스텀 path로 클론된
+    머신(기본값 ~/dotfiles가 아닌 경우)도 정확히 맞도록, 단순 홈 디렉토리
+    확장이 아니라 이 스크립트가 이미 알고 있는 dotfiles_root를 사용한다.
+    dotfiles 트리 밖을 가리키는 `~` 경로는 일반적인 홈 디렉토리 확장만 적용한다.
     settings.json은 동기화 대상이 아닌 로컬 실파일이므로 절대 경로가 들어가도 안전하다.
     """
+    prefix = "~/dotfiles/"
     for entry in (cfg.get("extraKnownMarketplaces") or {}).values():
         source = entry.get("source") if isinstance(entry, dict) else None
         if isinstance(source, dict) and isinstance(source.get("path"), str):
-            source["path"] = os.path.expanduser(source["path"])
+            path = source["path"]
+            if path.startswith(prefix):
+                path = os.path.join(dotfiles_root, path[len(prefix):])
+            else:
+                path = os.path.expanduser(path)
+            source["path"] = path
 
 with open(base_path) as f:
     base = json.load(f)
 with open(target_path) as f:
     target = json.load(f)
 
-expand_marketplace_paths(base)
+expand_marketplace_paths(base, dotfiles_root)
 
 merged = merge(base, target)
 
