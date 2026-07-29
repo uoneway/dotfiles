@@ -11,6 +11,11 @@ if [ ! -f "$MANIFEST" ]; then
   exit 0
 fi
 
+# nvm으로 설치된 node는 비대화형 셸(ssh로 원격 apply 실행 등)에서 .bashrc/.zshrc가
+# 소싱되지 않아 PATH에 안 잡힌다 — nvm이 있으면 명시적으로 로드한다.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+
 if ! command -v npx >/dev/null 2>&1; then
   echo "  [warn] npx not found — third-party skills skipped"
   exit 0
