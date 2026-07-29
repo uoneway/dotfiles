@@ -33,13 +33,14 @@ config/ 편집 (또는 bin/dotfiles 수정) → 해당 레포에 커밋
 
 - `dotfiles status` / `dotfiles status --json`: STATE(`synced` / `behind N` / `drift` / `not bootstrapped` / `unreachable(사유)`)와 APPLIED(`ok` / `stale` / `never`, 마지막 적용 후 경과 시간)를 판정해서 보여준다. 원격당 ssh 왕복 1회로 필요한 정보를 전부 모으고, ControlMaster 소켓으로 반복 접속을 가속한다.
 - `~/.local/state/dotfiles/applied`: apply 성공 시 `<fw-sha> <cfg-sha> <epoch>`를 기록한다. "pull은 됐는데 apply가 실패/누락됨"을 감지하는 유일한 근거이므로, 이 기록 로직(`cmd_apply` 끝부분)을 건드릴 때는 신중히.
-- 새 기능/다음 작업은 `config/notes/backlog.md`(private config repo)에 우선순위(1/2/3순위)로 적어 세션 간 핸드오프한다.
+- 새 기능/다음 작업은 `docs/backlog.md`(이 레포, public)에 우선순위(1/2/3순위)로 적어 세션 간 핸드오프한다. 개인 설정 관련 메모가 아니라 프레임워크 자체의 로드맵이라 public 레포 쪽이 맞는 자리다.
 
 ## 장기
 
 현재 진행 상태, 브랜치별 메모 — 오래된 항목은 지우고 최신 상태로 갱신할 것.
 
 - 2026-07-20: `dotfiles status` 판정 자동화 완료 (1순위: STATE/APPLIED 판정, 2순위: `--json`/ssh ControlMaster/마지막 apply 시각) → `feat/status-judgement`를 `main`에 머지 후 배포. 3대 중 doomfist-common·link-ubase 배포 성공, link는 로컬 drift(zshrc에 Codex installer PATH 블록 직접 append, AGENTS.md 로컬 수정)로 자동 스킵됨.
-- link.rtzr.ai의 AGENTS.md 로컬 수정(파일시스템 루트 재귀 검색 금지 가드레일)은 표준 `config/ai/AGENTS.md`로 승격·배포 완료. zshrc의 Codex PATH 블록은 `~/.zshrc.d/local.zsh`로 이전 예정(진행 중).
-- 3순위(opt-in, 미착수): `--deep`(원격 verify.sh 실행 요약), manifest 스킬 설치 상태 가시화. 상세는 `config/notes/backlog.md` 참고.
+- link.rtzr.ai의 AGENTS.md 로컬 수정(파일시스템 루트 재귀 검색 금지 가드레일)은 표준 `config/ai/AGENTS.md`로 승격·배포 완료. zshrc의 Codex PATH 블록도 `~/.zshrc.d/local.zsh`로 이전 완료 — 심링크 복구까지 확인됨.
+- 2026-07-29: 백로그 문서를 `config/notes/backlog.md`(private)에서 `docs/backlog.md`(이 레포, public)로 이전. 프레임워크 로드맵은 개인 설정과 성격이 달라 public 쪽이 맞다는 판단.
+- 3순위(opt-in, 미착수): `--deep`(원격 verify.sh 실행 요약), manifest 스킬 설치 상태 가시화. 상세는 `docs/backlog.md` 참고.
 - 알려진 제약: `link-ubase`는 Node 18이라 mattpocock manifest 스킬 설치가 실패한다(`styleText` export 문제) — Node 20+ 승급 전까지는 그 머신에서 서드파티 스킬 설치가 안 됨. `doomfist-common`은 Node 자체가 없음.
