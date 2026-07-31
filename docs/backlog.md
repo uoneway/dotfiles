@@ -7,6 +7,7 @@
 - **4대 완전 동기화** (control 맥 + 원격 3대), Syncthing 완전 퇴역 (dotfiles-config 폴더 공유 해제, 잔재 정리)
 - 일상 워크플로우: **config 편집 → 커밋 → `dotfiles push --all`**
 - bash 로그인 서버는 bashrc의 인터랙티브 전용 exec zsh 블록으로 zsh 전환 (`DOTFILES_NO_ZSH=1` 우회)
+- **4대 전부 nvm으로 Node 24(LTS) 통일** (2026-07-30) — doomfist-common(Node 없었음)·link-ubase(Node 18, EOL)에 nvm 설치 후 승급. `install-manifest-skills.sh`가 비대화형 ssh 셸에서 nvm을 못 찾던 버그도 같이 수정(`nvm.sh` 명시적 로드) — 두 머신 다 mattpocock 스킬 22개 정상 설치 확인
 
 ## `dotfiles status` 개선 (`feat/status-judgement` 브랜치, 2026-07-20)
 
@@ -27,7 +28,7 @@
 
 **3순위 (opt-in, 미착수)**
 - `--deep`: 원격 verify.sh 실행 요약
-- manifest 스킬 설치 상태 (Node 없는 머신 가시화)
+- manifest 스킬 설치 상태 가시화
 
 **안 하기로 한 것**: 기본 동작에 verify 포함(느려짐), status에서 자동 복구(읽기/쓰기 분리 유지)
 
@@ -38,8 +39,6 @@
 | Phase 2 대시보드 | localhost 웹, status --json 기반 머신 그리드 + push 버튼 + 로그 스트림 | 머신 늘어나 status 텍스트가 답답해질 때 |
 | Phase 3 에디터 | config 파일 편집 UI | 우선순위 최하 |
 | dotfiles.old 삭제 | link 서버의 옛 클론 (callabo-cli·move-to-docs는 회수 완료, 나머지는 대체됨) | 몇 주 안정 운영 후 |
-| link-ubase Node 승급 | Node 18 → 20+ (nvm) 올리면 다음 push 때 manifest 스킬 자동 설치 | 아무 때나 |
-| doomfist-common node | node 자체 없음 — manifest 스킬 원하면 설치 | 선택 |
 | name-service _workspace 정리 | 작업 산출물(`_workspace/02_candidates-*.md`)이 config에 커밋돼 있음 | 정리 겸사 |
 | 새 머신 추가 절차 | machines.toml 등록 → clone 2개 → `bin/dotfiles apply` (secrets.zsh 수동) — /sync-setup 참조 | 필요 시 |
 
