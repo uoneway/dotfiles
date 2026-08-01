@@ -121,8 +121,9 @@ cmd_apply() {
     esac
   done
 
-  # 서드파티 스킬 (네트워크 필요 — 실패해도 계속)
-  bash "$SCRIPTS/install-manifest-skills.sh" || true
+  # 서드파티 스킬. 네트워크 실패는 스크립트가 경고로 삼키고 0을 돌려준다 —
+  # 0이 아니라는 건 manifest 설정 오류(잘못된 agent id 등)라는 뜻이므로 apply를 실패로 본다.
+  bash "$SCRIPTS/install-manifest-skills.sh" || rc=1
 
   # CLI를 PATH에 노출
   if [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin"; then
