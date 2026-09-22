@@ -13,7 +13,7 @@ AI 코딩 도구마다 글로벌 인스트럭션을 찾는 위치가 다릅니�
 - **설정 (settings.json / config.toml)** — 심링크가 아닌 **병합**: 도구가 런타임에 머신 상태를 쓰는 파일이라, 내가 관리하는 base 키만 교체하고 나머지는 보존
 - **셸 (zshrc)** — feature-detection(guard) 기반 공통 설정 + OS별 파일 + 머신 로컬 레이어(local.zsh/secrets.zsh, 동기화 제외)
 
-여러 머신 배포는 **제어 머신 모델**입니다: 한 머신에서 편집·커밋하면 `dotfiles push`가 등록된 머신들에 git으로 배포하고 적용까지 실행합니다.
+여러 머신 배포는 두 방식으로 나뉩니다. SSH로 상시 접근할 수 있는 머신은 제어 머신의 `dotfiles push`로 배포합니다. 이동하며 네트워크가 바뀌는 랩탑은 해당 랩탑의 `dotfiles pull`로 갱신합니다.
 
 ## Quick Start
 
@@ -100,7 +100,7 @@ Gemini CLI는 템플릿만 제공하며 기본 비활성입니다 (Antigravity �
 
 ```text
 dotfiles/                              # public: 프레임워크
-├── bin/dotfiles                       #   CLI: apply / push / status / machines
+├── bin/dotfiles                       #   CLI: apply / pull / push / status / machines
 ├── .claude/skills/
 │   ├── setup/                         #   /setup (인스톨러)
 │   ├── uninstall/                     #   /uninstall (제거/복원)
@@ -130,7 +130,9 @@ dotfiles/                              # public: 프레임워크
 └── README.md
 ```
 
-## 여러 머신에서 쓰기 (제어 머신 모델)
+## 여러 머신에서 쓰기
+
+### SSH로 접근 가능한 머신에 배포하기
 
 ```
 [제어 머신] config/ 편집 → 심링크로 즉시 로컬 반영 → git commit
@@ -148,6 +150,16 @@ dotfiles/                              # public: 프레임워크
 - **원격이 dirty면 건너뛰고 보고** — `--force`로만 덮어씁니다
 - **secrets는 배포하지 않음** — push 전 secret 스캔이 돌고, 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둡니다
 - GitHub 접근이 안 되는 머신은 `transport = "direct"`(ssh 직접 push)로 지정
+
+### 이동형 랩탑에서 동기화하기
+
+네트워크가 자주 바뀌거나 절전하는 랩탑은 `config/machines.toml`에 등록하지 않습니다. 랩탑에서 다음 명령을 실행하면 두 저장소를 `fast-forward`로 갱신한 뒤 설정을 적용하고 검증합니다.
+
+```bash
+dotfiles pull
+```
+
+랩탑에는 두 저장소를 한 번씩 clone하고 GitHub 접근 권한을 설정해야 합니다. 로컬 변경이 있거나 원격 이력과 갈라졌으면 `dotfiles pull`은 덮어쓰지 않고 중단합니다. 이 방식은 랩탑으로 들어오는 SSH 연결이 필요하지 않습니다.
 
 > Syncthing 병행은 지원하지 않습니다 — 실시간 파일 동기화가 원격 tree를 dirty로 만들어 git pull과 충돌합니다.
 

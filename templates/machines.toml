@@ -1,5 +1,7 @@
 # 배포 대상 머신 선언 — bin/dotfiles push/status가 읽는다.
 # 이 파일은 config/에 있으며 private repo로만 동기화된다 (호스트명 노출 주의).
+# 제어 머신에서 SSH로 접근할 수 있는 머신만 등록한다.
+# 이동형 랩탑은 등록하지 않고 해당 랩탑에서 `dotfiles pull`을 실행한다.
 #
 # [machines.<이름>]
 # host = "ssh-호스트"            # ~/.ssh/config의 Host 별칭 또는 user@host

@@ -3,7 +3,8 @@
 ## 현재 상태 (완료된 것)
 
 - **아키텍처 확정·구현 완료**: config/ 단일 소스 + 심링크(인스트럭션·스킬·agents) + 병합(settings.base.json/config.base.toml — base 키만 교체, 머신 상태 보존) + manifest(`npx skills`, mattpocock 22종)
-- **멀티 머신 배포 가동 중**: `bin/dotfiles` CLI (apply/push/status/machines), machines.toml에 3대 등록 (link, doomfist-common, link-ubase — 전부 hub transport, shell,claude,codex)
+- **멀티 머신 배포 가동 중**: `bin/dotfiles` CLI (apply/pull/push/status/machines), machines.toml에 3대 등록 (link, doomfist-common, link-ubase — 전부 hub transport, shell,claude,codex)
+- 이동형 랩탑은 `machines.toml`에 등록하지 않고 로컬 `dotfiles pull`로 두 저장소 갱신 → apply → verify
 - **4대 완전 동기화** (control 맥 + 원격 3대), Syncthing 완전 퇴역 (dotfiles-config 폴더 공유 해제, 잔재 정리)
 - 일상 워크플로우: **config 편집 → 커밋 → `dotfiles push --all`**
 - bash 로그인 서버는 bashrc의 인터랙티브 전용 exec zsh 블록으로 zsh 전환 (`DOTFILES_NO_ZSH=1` 우회)
@@ -40,7 +41,7 @@
 | Phase 3 에디터 | config 파일 편집 UI | 우선순위 최하 |
 | dotfiles.old 삭제 | link 서버의 옛 클론 (callabo-cli·move-to-docs는 회수 완료, 나머지는 대체됨) | 몇 주 안정 운영 후 |
 | name-service _workspace 정리 | 작업 산출물(`_workspace/02_candidates-*.md`)이 config에 커밋돼 있음 | 정리 겸사 |
-| 새 머신 추가 절차 | machines.toml 등록 → clone 2개 → `bin/dotfiles apply` (secrets.zsh 수동) — /sync-setup 참조 | 필요 시 |
+| 새 머신 추가 절차 | SSH 관리 대상은 machines.toml 등록, 이동형 랩탑은 `dotfiles pull` 사용. 둘 다 최초 clone 2개와 secrets.zsh 설정 필요 | 필요 시 |
 
 ## 알려진 한계 (문서화됨, 필요 시 개선)
 

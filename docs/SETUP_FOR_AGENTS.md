@@ -57,7 +57,7 @@ Never edit `~/.claude/settings.json` / `~/.codex/config.toml` expecting the chan
 
 ## Multi-machine deploy
 
-From the control machine:
+Use control-initiated push only for machines that are normally reachable over SSH:
 
 ```bash
 dotfiles push --all     # commit-gated: aborts if repos dirty; secret-scans config/ first
@@ -66,6 +66,14 @@ dotfiles machines       # list registered machines (config/machines.toml)
 ```
 
 Register machines in `config/machines.toml` (see file header for format). Use `/sync-setup` for guided setup.
+
+For roaming laptops that sleep or change networks, do not register the laptop in `config/machines.toml`. After cloning both repositories and configuring GitHub access, run this command on the laptop:
+
+```bash
+dotfiles pull           # fast-forward both repos, then apply and verify locally
+```
+
+`dotfiles pull` aborts if either repository has uncommitted changes or cannot be fast-forwarded. It does not require inbound SSH access to the laptop.
 
 ## Troubleshooting
 

@@ -1,13 +1,14 @@
 #!/bin/bash
-# dotfiles — 멀티 머신 dotfiles 제어 CLI (Phase 1)
+# dotfiles — 멀티 머신 dotfiles 동기화 CLI
 #
-# 제어 머신에서 config/를 편집·커밋하고, 등록된 머신들에 배포한다.
+# 제어 머신은 등록된 머신들에 push하고, 이동형 머신은 허브에서 pull한다.
 # 배포 = git pull(hub) 또는 git push(direct) + 원격 apply + verify. 자세한 규칙:
 #   - 배포되는 것은 항상 커밋이다 (로컬이 dirty면 push를 중단)
 #   - 원격이 dirty면 건너뛰고 보고한다 (--force로만 덮어씀)
 #
 # Usage:
 #   dotfiles apply [components]                # 이 머신에 적용 (예: shell,claude,codex)
+#   dotfiles pull [components]                 # 허브에서 두 레포를 받은 뒤 이 머신에 적용
 #   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
 #   dotfiles status [machine ...] [--all] [--json]  # 머신별 배포 상태/드리프트
 #   dotfiles machines                          # 등록된 머신 목록
@@ -144,6 +145,36 @@ cmd_apply() {
   fi
 
   return $rc
+}
+
+# ---------- pull (이동형 머신의 클라이언트 주도 동기화) ----------
+cmd_pull() {
+  if [ $# -gt 1 ]; then
+    echo "Usage: dotfiles pull [components]" >&2
+    return 1
+  fi
+
+  # pull이 일부 로컬 변경을 그대로 둔 채 성공하는 경우를 막는다.
+  # 이동형 머신도 커밋된 상태만 적용한다는 원칙은 push 대상과 같다.
+  local repo
+  for repo in "$DOTFILES" "$CONFIG"; do
+    if ! git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      echo "[abort] git repository not found: $repo" >&2
+      return 1
+    fi
+    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+      echo "[abort] uncommitted changes in $repo — 커밋하거나 정리한 후 pull 하세요" >&2
+      return 1
+    fi
+  done
+
+  echo "--- pulling from hub ---"
+  git -C "$DOTFILES" pull --ff-only || { echo "[error] framework pull 실패"; return 1; }
+  git -C "$CONFIG" pull --ff-only || { echo "[error] config pull 실패"; return 1; }
+
+  echo ""
+  # framework가 갱신됐을 수 있으므로 현재 프로세스의 함수 대신 새 CLI를 실행한다.
+  bash "$DOTFILES/bin/dotfiles" apply "$@"
 }
 
 # ---------- push ----------
@@ -455,6 +486,7 @@ cmd_status() {
 # ---------- main ----------
 case "${1:-}" in
   apply)    shift; cmd_apply "$@" ;;
+  pull)     shift; cmd_pull "$@" ;;
   push)     shift; cmd_push "$@" ;;
   status)   shift; cmd_status "$@" ;;
   machines) list_machines | awk -F'|' '{ printf "%-16s host=%-28s components=%-24s transport=%-7s path=%s\n", $1, $2, $3, $4, $5 }' ;;
