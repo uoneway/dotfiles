@@ -46,7 +46,7 @@ config/ 한 곳에서 관리하고, 각 도구에 연결합니다.
 
 | 대상 | 시점 | 위치 |
 |---|---|---|
-| 심링크로 교체되는 파일/디렉토리 (CLAUDE.md, skills, zshrc 등) | 교체 직전 | `dotfiles/backup/<홈 기준 상대경로>` |
+| 심링크로 교체되는 파일/디렉토리 (AGENTS.md, skills, zshrc 등) | 교체 직전 | `dotfiles/backup/<홈 기준 상대경로>` |
 | 병합되는 파일 (settings.json, config.toml) | **최초 병합 전 1회** + 매 병합 시 `.pre-merge.bak` | `dotfiles/backup/` + 원본 옆 |
 
 - `backup/`은 홈 디렉토리 구조를 미러링하므로 어떤 파일의 원본인지 즉시 알 수 있다
@@ -87,7 +87,7 @@ AskUserQuestion으로 3가지를 질문한다.
 
 "AI 도구 간 글로벌 인스트럭션을 어떻게 관리할까요?"
 
-- **통합**: 하나의 `AGENTS.md`를 작성하고 `CLAUDE.md`, `GEMINI.md`를 이것의 심링크로 연결
+- **통합**: 하나의 `AGENTS.md`를 작성하고 각 도구의 인스트럭션 진입점을 이것의 심링크로 연결
   - 장점: 한 파일만 편집하면 모든 도구에 적용
   - 적합: 도구 간 일관된 지시를 원할 때
 - **개별**: 각 도구마다 독립 인스트럭션 파일 유지
@@ -119,7 +119,7 @@ init-config.sh 실행 후 Q2 선택에 따라 추가 작업:
 **통합 모드**: `config/ai/AGENTS.md` 하나만 사용. 각 도구별 인스트럭션 파일이 있으면 삭제한다.
 
 ```bash
-rm -f ~/dotfiles/config/ai/claude/CLAUDE.md
+rm -f ~/dotfiles/config/ai/claude/AGENTS.md
 rm -f ~/dotfiles/config/ai/codex/AGENTS.md
 rm -f ~/dotfiles/config/ai/gemini/GEMINI.md
 ```
@@ -133,7 +133,7 @@ cp -r ~/dotfiles/templates/ai/gemini ~/dotfiles/config/ai/gemini
 **개별 모드**: 각 도구 폴더에 개별 인스트럭션 파일을 생성한다. `config/ai/AGENTS.md`의 내용을 초기값으로 복사한다.
 
 ```bash
-cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/claude/CLAUDE.md
+cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/claude/AGENTS.md
 cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/codex/AGENTS.md
 cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/gemini/GEMINI.md
 ```
@@ -154,7 +154,9 @@ Q1에서 선택했지만 미설치인 도구가 있으면 설치 방법을 안�
 
 ### 심링크 생성 + 설정 병합
 
-선택된 각 AI 도구에 대해 Q2 선택에 따라 `--unified` 또는 `--separate` 플래그를 전달:
+Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. 설치된 버전이 더 낮으면 먼저 Claude Code를 업데이트한다.
+
+선택한 각 AI 도구에는 Q2 결과에 따라 `--unified` 또는 `--separate` 플래그를 전달:
 
 ```bash
 # 통합 모드
@@ -168,7 +170,8 @@ bash .claude/skills/setup/scripts/link-tool.sh codex --separate
 
 link-tool.sh가 수행하는 것:
 
-- **인스트럭션·agents·rules·statusline**: 심링크
+- **인스트럭션**: Claude는 `~/AGENTS.md`, Codex는 `~/.codex/AGENTS.md`, Gemini는 `~/.gemini/GEMINI.md`에 심링크
+- **agents·rules·statusline**: 도구별 경로에 심링크
 - **settings.json / config.toml**: 심링크가 아닌 **병합** — `settings.base.json` / `config.base.toml`의
   키만 교체하고 머신 로컬 항목(hooks, `[projects]` 등)은 보존 (merge-*.sh)
 - **skills**: 대상 디렉토리에 per-skill 심링크 (공용 `config/ai/skills/` + 도구 전용)

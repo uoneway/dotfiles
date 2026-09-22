@@ -46,7 +46,7 @@ source ~/.zshrc                                          # 7. apply
 
 | File | Mechanism |
 |---|---|
-| `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` | symlink → `config/ai/AGENTS.md` (unified mode) |
+| `~/AGENTS.md`, `~/.codex/AGENTS.md` | symlink → `config/ai/AGENTS.md` (unified mode) |
 | `~/.claude/settings.json` | **merge** — keys in `config/ai/claude/settings.base.json` win, machine-local keys (hooks, additionalDirectories) preserved |
 | `~/.codex/config.toml` | **merge** — keys in `config/ai/codex/config.base.toml` win, machine state (`[projects]`, `[hooks.state]`, plugins…) preserved |
 | `~/.claude/skills/`, `~/.codex/skills/` | real dir + per-skill symlinks (shared `config/ai/skills/` + tool-specific) |

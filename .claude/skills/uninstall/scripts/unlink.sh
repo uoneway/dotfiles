@@ -16,6 +16,12 @@ unlink_file() {
   local dst="$1" label="$2" config_src="$3"
   local rel_path="${dst#$HOME/}"
   if [ -L "$dst" ]; then
+    local target
+    target="$(readlink "$dst")"
+    case "$target" in
+      "$CONFIG"/*) ;;
+      *) echo "  [skip] $label: $dst (symlink is not managed by dotfiles)"; return ;;
+    esac
     rm "$dst"
     case "$MODE" in
       --restore)
@@ -130,8 +136,10 @@ echo ""
 # AI Tools (먼저 제거)
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "claude" ]; then
   echo "--- claude ---"
+  claude_instructions="$CONFIG/ai/AGENTS.md"
+  [ -f "$CONFIG/ai/claude/AGENTS.md" ] && claude_instructions="$CONFIG/ai/claude/AGENTS.md"
   unlink_merged "$HOME/.claude/settings.json" "settings.json"
-  unlink_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md" "$CONFIG/ai/AGENTS.md"
+  unlink_file "$HOME/AGENTS.md" "AGENTS.md" "$claude_instructions"
   unlink_file "$HOME/.claude/statusline-command.sh" "statusline-command.sh" "$CONFIG/ai/claude/statusline-command.sh"
   unlink_skills "$HOME/.claude/skills" "skills/"
   unlink_dir  "$HOME/.claude/agents" "agents/" "$CONFIG/ai/claude/agents"

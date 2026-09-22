@@ -102,7 +102,7 @@ cmd_apply() {
 
   # 인스트럭션 모드 감지: 도구별 파일이 있으면 separate, 없으면 unified
   local mode="--unified"
-  [ -f "$CONFIG/ai/claude/CLAUDE.md" ] && mode="--separate"
+  [ -f "$CONFIG/ai/claude/AGENTS.md" ] && mode="--separate"
 
   echo "=== dotfiles apply (components: $comps, mode: ${mode#--}) ==="
   local rc=0 c

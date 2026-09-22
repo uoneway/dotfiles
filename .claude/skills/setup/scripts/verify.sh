@@ -36,7 +36,7 @@ is_managed() {
 # (settings.json/config.toml은 병합 방식이라 심링크가 아님 → 인스트럭션 링크로 감지)
 if [ -z "$TOOLS" ]; then
   detected=""
-  is_managed "$HOME/.claude/CLAUDE.md" && detected="${detected}claude,"
+  is_managed "$HOME/AGENTS.md" && detected="${detected}claude,"
   is_managed "$HOME/.codex/AGENTS.md" && detected="${detected}codex,"
   is_managed "$HOME/.gemini/GEMINI.md" && detected="${detected}gemini,"
   TOOLS="${detected%,}"
@@ -124,9 +124,13 @@ if echo "$TOOLS" | grep -q "claude"; then
   echo "--- claude ---"
   check_merged_config "settings.json" "$SCRIPTS/merge-claude-settings.sh"
   if [ "$MODE" = "--unified" ]; then
-    check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/AGENTS.md" "CLAUDE.md"
+    check_link "$HOME/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
   else
-    check_link "$HOME/.claude/CLAUDE.md" "$CONFIG/ai/claude/CLAUDE.md" "CLAUDE.md"
+    check_link "$HOME/AGENTS.md" "$CONFIG/ai/claude/AGENTS.md" "AGENTS.md"
+  fi
+  if is_managed "$HOME/.claude/CLAUDE.md"; then
+    echo "  [fail] legacy managed link remains: $HOME/.claude/CLAUDE.md"
+    ERRORS=$((ERRORS + 1))
   fi
   check_skill_links "$HOME/.claude/skills" "$CONFIG/ai/skills" "$CONFIG/ai/claude/skills"
   check_link "$HOME/.claude/agents" "$CONFIG/ai/claude/agents" "agents/"

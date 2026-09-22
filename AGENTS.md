@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`~/dotfiles`에서 작업할 때 규칙의 기준이 되는 파일이다. `CLAUDE.md`는 이 파일을 가리키는 포인터만 두고, 규칙은 여기 한 곳에만 쓴다.
+`~/dotfiles`에서 작업할 때 적용되는 프로젝트 규칙의 기준 파일이다. Claude Code와 Codex가 이 파일을 직접 읽는다.
 
 (참고: `config/ai/AGENTS.md`는 이것과 다른 파일이다 — 그건 모든 도구·모든 프로젝트에 배포되는 글로벌 인스트럭션이고, 이 파일은 dotfiles 레포 자체에서 작업할 때만 적용되는 규칙이다.)
 
@@ -34,4 +34,3 @@ config/ 편집 (또는 bin/dotfiles 수정) → 해당 레포에 커밋
 - `dotfiles status` / `dotfiles status --json`: STATE(`synced` / `behind N` / `drift` / `not bootstrapped` / `unreachable(사유)`)와 APPLIED(`ok` / `stale` / `never`, 마지막 적용 후 경과 시간)를 판정해서 보여준다. 원격당 ssh 왕복 1회로 필요한 정보를 전부 모으고, ControlMaster 소켓으로 반복 접속을 가속한다.
 - `~/.local/state/dotfiles/applied`: apply 성공 시 `<fw-sha> <cfg-sha> <epoch>`를 기록한다. "pull은 됐는데 apply가 실패/누락됨"을 감지하는 유일한 근거이므로, 이 기록 로직(`cmd_apply` 끝부분)을 건드릴 때는 신중히.
 - 새 기능/다음 작업은 `docs/backlog.md`(이 레포, public)에 우선순위(1/2/3순위)로 적어 세션 간 핸드오프한다. 개인 설정 관련 메모가 아니라 프레임워크 자체의 로드맵이라 public 레포 쪽이 맞는 자리다.
-

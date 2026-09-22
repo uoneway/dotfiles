@@ -27,6 +27,52 @@ backup_and_link() {
   echo "  [ok] $dst -> $src"
 }
 
+version_at_least() {
+  local version="$1" required="$2"
+  local v_major v_minor v_patch r_major r_minor r_patch
+  IFS=. read -r v_major v_minor v_patch <<EOF
+$version
+EOF
+  IFS=. read -r r_major r_minor r_patch <<EOF
+$required
+EOF
+  [ "$v_major" -gt "$r_major" ] ||
+    { [ "$v_major" -eq "$r_major" ] && [ "$v_minor" -gt "$r_minor" ]; } ||
+    { [ "$v_major" -eq "$r_major" ] && [ "$v_minor" -eq "$r_minor" ] && [ "$v_patch" -ge "$r_patch" ]; }
+}
+
+require_claude_agents_md_support() {
+  command -v claude >/dev/null 2>&1 || return 0
+  local version
+  version="$(claude --version 2>/dev/null)"
+  version="${version%% *}"
+  case "$version" in
+    [0-9]*.[0-9]*.[0-9]*)
+      if ! version_at_least "$version" "2.1.277"; then
+        echo "  [error] Claude Code 2.1.277+ is required for AGENTS.md (installed: $version)"
+        return 1
+      fi
+      ;;
+    *) echo "  [warn] Could not determine Claude Code version; AGENTS.md requires 2.1.277+" ;;
+  esac
+}
+
+remove_legacy_claude_link() {
+  local dst="$HOME/.claude/CLAUDE.md" target
+  if [ -L "$dst" ]; then
+    target="$(readlink "$dst")"
+    case "$target" in
+      "$CONFIG"/*)
+        rm "$dst"
+        echo "  [clean] legacy managed link removed: $dst"
+        ;;
+      *) echo "  [warn] $dst is not managed by dotfiles — left unchanged" ;;
+    esac
+  elif [ -e "$dst" ]; then
+    echo "  [warn] $dst is a user file — left unchanged"
+  fi
+}
+
 backup_and_link_dir() {
   local src="$1" dst="$2"
   local rel_path="${dst#$HOME/}"
@@ -85,6 +131,7 @@ echo "--- $TOOL ---"
 case "$TOOL" in
   claude)
     mkdir -p "$HOME/.claude"
+    require_claude_agents_md_support
     # settings.json은 심링크가 아니라 병합: Claude Code가 런타임에 머신 상태를 쓰는 파일이라
     # 심링크하면 머신 간 충돌이 남. base 키만 교체하고 나머지(hooks 등)는 보존한다.
     [ -f "$CONFIG/ai/claude/settings.base.json" ] && bash "$(cd "$(dirname "$0")" && pwd)/merge-claude-settings.sh"
@@ -94,9 +141,13 @@ case "$TOOL" in
     [ -d "$CONFIG/ai/claude/output-styles" ] && backup_and_link_dir "$CONFIG/ai/claude/output-styles" "$HOME/.claude/output-styles"
     [ -d "$CONFIG/ai/claude/commands" ] && backup_and_link_dir "$CONFIG/ai/claude/commands" "$HOME/.claude/commands"
     if [ "$MODE" = "--unified" ]; then
-      [ -f "$CONFIG/ai/AGENTS.md" ] && backup_and_link "$CONFIG/ai/AGENTS.md" "$HOME/.claude/CLAUDE.md"
-    else
-      [ -f "$CONFIG/ai/claude/CLAUDE.md" ] && backup_and_link "$CONFIG/ai/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+      if [ -f "$CONFIG/ai/AGENTS.md" ]; then
+        backup_and_link "$CONFIG/ai/AGENTS.md" "$HOME/AGENTS.md"
+        remove_legacy_claude_link
+      fi
+    elif [ -f "$CONFIG/ai/claude/AGENTS.md" ]; then
+      backup_and_link "$CONFIG/ai/claude/AGENTS.md" "$HOME/AGENTS.md"
+      remove_legacy_claude_link
     fi
     link_skills "$HOME/.claude/skills" "$CONFIG/ai/skills" "$CONFIG/ai/claude/skills"
     [ -d "$CONFIG/ai/claude/agents" ] && backup_and_link_dir "$CONFIG/ai/claude/agents" "$HOME/.claude/agents"

@@ -4,7 +4,7 @@ AI 코딩 도구(Claude Code, Codex CLI)와 셸(zsh/bash) 설정을 한 곳에�
 
 ## Why dotfiles
 
-AI 코딩 도구마다 설정 파일 위치가 다릅니다. 글로벌 인스트럭션을 바꾸려면 `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`를 각각 열어서 같은 내용을 반복 수정해야 합니다. 셸 설정은 머신·OS마다 미묘하게 달라지고, 스킬은 도구마다 따로 설치해야 합니다.
+AI 코딩 도구마다 글로벌 인스트럭션을 찾는 위치가 다릅니다. Claude Code는 홈 디렉토리의 `AGENTS.md`, Codex는 `~/.codex/AGENTS.md`를 사용하므로 별도로 관리하면 같은 내용을 반복해서 수정해야 합니다. 셸 설정은 머신·OS마다 미묘하게 달라지고, 스킬은 도구마다 따로 설치해야 합니다.
 
 이 프로젝트는 **모든 설정을 `config/` 한 폴더에 모으고, 각 도구의 원래 위치에 연결**합니다:
 
@@ -48,9 +48,9 @@ bash ~/dotfiles/bin/dotfiles apply
 
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
-| `CLAUDE.md` (글로벌 인스트럭션) | ✅ | 심링크 → `config/ai/AGENTS.md` (Codex와 공유) |
+| `~/AGENTS.md` (글로벌 인스트럭션) | ✅ | 심링크 → `config/ai/AGENTS.md` (Codex와 공유) |
 | `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — `settings.base.json`의 키만 교체 |
-| 플러그인 (`enabledPlugins`, `extraKnownMarketplaces`) | ✅ | 선언이 base로 동기화 → 각 머신이 자동 설치 |
+| 플러그인 (`enabledPlugins`, `extraKnownMarketplaces`, `pluginConfigs`) | ✅ | 선언과 설정이 base로 동기화 → 각 머신이 자동 설치 |
 | `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Claude 전용) |
 | `agents/` (서브에이전트) | ✅ | 심링크 |
 | `statusline-command.sh` | ✅ | 심링크 |
@@ -62,11 +62,13 @@ bash ~/dotfiles/bin/dotfiles apply
 | `~/.claude.json` | ❌ | OAuth 세션·MCP 서버 등록·프로젝트 신뢰 상태 — 런타임 상태, 도구가 자동 관리 |
 | `history.jsonl`, `projects/`, `sessions/`, plugins 캐시 | ❌ | 런타임 상태 |
 
+Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENTS.md`는 홈 디렉토리 아래에서 실행한 세션에 적용된다. Bedrock, Vertex, Foundry나 기능 플래그를 받지 않는 환경에서는 이 기능을 사용할 수 없다.
+
 ### Codex CLI (`~/.codex/`)
 
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
-| `AGENTS.md` (글로벌 인스트럭션) | ✅ | 심링크 → `config/ai/AGENTS.md` (Claude와 공유) |
+| `AGENTS.md` (글로벌 인스트럭션) | ✅ | `~/.codex/AGENTS.md` 심링크 → `config/ai/AGENTS.md` (Claude와 공유) |
 | `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, commit_attribution, `[tui]`, `[features]`, network_access | ✅ | **병합** — `config.base.toml`의 키만 교체 |
 | `rules/` (실행 정책) | ✅ | 심링크 |
 | `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용) |
