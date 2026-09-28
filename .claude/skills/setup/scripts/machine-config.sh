@@ -28,8 +28,8 @@ dotfiles_machine_extra() {
     }
     current == name && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
       value = $0
-      sub(/^[^=]*=[[:space:]]*\"/, "", value)
-      sub(/\"[[:space:]]*$/, "", value)
+      sub(/^[^=]*=[[:space:]]*"/, "", value)
+      sub(/"[[:space:]]*$/, "", value)
       print value
       exit
     }
