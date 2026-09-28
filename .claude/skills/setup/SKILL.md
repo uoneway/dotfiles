@@ -87,7 +87,7 @@ AskUserQuestion으로 3가지를 질문한다.
 
 "AI 도구 간 글로벌 인스트럭션을 어떻게 관리할까요?"
 
-- **통합**: 하나의 `AGENTS.md`를 작성하고 각 도구의 인스트럭션 진입점을 이것의 심링크로 연결
+- **통합**: 하나의 `AGENTS.md`를 작성하고 각 도구의 인스트럭션 진입점을 연결. 머신별 추가 파일이 선택된 경우 둘을 합친 결과를 연결
   - 장점: 한 파일만 편집하면 모든 도구에 적용
   - 적합: 도구 간 일관된 지시를 원할 때
 - **개별**: 각 도구마다 독립 인스트럭션 파일 유지
@@ -170,7 +170,7 @@ bash .claude/skills/setup/scripts/link-tool.sh codex --separate
 
 link-tool.sh가 수행하는 것:
 
-- **인스트럭션**: Claude는 `~/AGENTS.md`, Codex는 `~/.codex/AGENTS.md`, Gemini는 `~/.gemini/GEMINI.md`에 심링크
+- **인스트럭션**: Claude는 `~/AGENTS.md`, Codex는 `~/.codex/AGENTS.md`, Gemini는 `~/.gemini/GEMINI.md`에 심링크. `machines.toml`의 `agents_addition`이 있으면 추가 지침을 합친 결과에 연결
 - **agents·rules·statusline**: 도구별 경로에 심링크
 - **settings.json / config.toml**: 심링크가 아닌 **병합** — `settings.base.json` / `config.base.toml`의
   키만 교체하고 머신 로컬 항목(hooks, `[projects]` 등)은 보존 (merge-*.sh)
@@ -357,7 +357,7 @@ source ~/.zshrc   # 또는 source ~/.bashrc
 
 ### 커스터마이징 가이드
 
-- `config/` 내 파일을 자유롭게 편집 (심링크 항목은 즉시 반영)
+- `config/` 내 파일을 편집한다. 직접 심링크된 항목은 즉시 반영되고, 머신별 추가 인스트럭션은 `dotfiles apply` 후 반영된다.
 - 공유 설정 변경: `settings.base.json` / `config.base.toml` 수정 후 `dotfiles apply` (또는 link-tool.sh 재실행)
 - 새 공용 스킬: `config/ai/skills/<name>/SKILL.md` / Claude 전용: `config/ai/claude/skills/<name>/SKILL.md`
 - 서드파티 스킬: `config/ai/skills-manifest.toml`에 선언

@@ -60,10 +60,11 @@ git push -u origin main
 ```bash
 git clone <framework-repo> ~/dotfiles
 git clone <config-repo> ~/dotfiles/config
-bash ~/dotfiles/bin/dotfiles apply <components>
+bash ~/dotfiles/bin/dotfiles apply <components> --machine <machines.toml의-이름>
 ```
 
 - `transport = "direct"` 머신은 추가로: `git -C ~/dotfiles config receive.denyCurrentBranch updateInstead` (config repo에도 동일)
+- `--machine`은 해당 머신에 선택한 `agents_addition`·`zsh_addition`을 적용하고 머신 이름을 로컬에 기억한다. 이후 `dotfiles apply`에는 다시 적지 않아도 된다.
 - secrets가 필요한 머신이면 `~/.zshrc.d/secrets.zsh`를 수동으로 만들어준다 (동기화되지 않음)
 
 이후 배포는 제어 머신에서:

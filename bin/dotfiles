@@ -7,7 +7,7 @@
 #   - 원격이 dirty면 건너뛰고 보고한다 (--force로만 덮어씀)
 #
 # Usage:
-#   dotfiles apply [components]                # 이 머신에 적용 (예: shell,claude,codex)
+#   dotfiles apply [components] [--machine name] # 이 머신에 적용 (예: shell,claude,codex)
 #   dotfiles pull [components]                 # 허브에서 두 레포를 받은 뒤 이 머신에 적용
 #   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
 #   dotfiles status [machine ...] [--all] [--json]  # 머신별 배포 상태/드리프트
@@ -28,6 +28,7 @@ DOTFILES="$(cd "$(dirname "$SELF")/.." && pwd)"
 CONFIG="$DOTFILES/config"
 SCRIPTS="$DOTFILES/.claude/skills/setup/scripts"
 MACHINES_FILE="$CONFIG/machines.toml"
+source "$SCRIPTS/machine-config.sh"
 
 # ssh 연결 재사용 — 같은 머신에 반복 접속(push의 dirty-check/pull/apply, 반복 status 호출)이
 # ProxyJump 홉을 매번 새로 열지 않도록 60초간 소켓을 유지한다
@@ -92,7 +93,24 @@ secret_scan() {
 
 # ---------- apply (로컬/원격 공용, 무인 실행) ----------
 cmd_apply() {
-  local comps="${1:-}"
+  local comps="" machine="" explicit_machine=false
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --machine)
+        [ $# -ge 2 ] || { echo "[error] --machine requires a name" >&2; return 1; }
+        machine="$2"; explicit_machine=true; shift 2 ;;
+      -*) echo "[error] unknown apply option: $1" >&2; return 1 ;;
+      *)
+        [ -z "$comps" ] || { echo "[error] too many apply arguments" >&2; return 1; }
+        comps="$1"; shift ;;
+    esac
+  done
+  if ! $explicit_machine; then machine="$(dotfiles_machine_name)"; fi
+  if [ -n "$machine" ]; then
+    dotfiles_machine_extra "$machine" agents_addition >/dev/null || return 1
+    dotfiles_machine_extra "$machine" zsh_addition >/dev/null || return 1
+  fi
+  export DOTFILES_MACHINE="$machine"
   if [ -z "$comps" ]; then
     # 미지정 시 config 내용 기반 자동 감지
     comps="shell"
@@ -105,7 +123,7 @@ cmd_apply() {
   local mode="--unified"
   [ -f "$CONFIG/ai/claude/AGENTS.md" ] && mode="--separate"
 
-  echo "=== dotfiles apply (components: $comps, mode: ${mode#--}) ==="
+  echo "=== dotfiles apply (components: $comps, mode: ${mode#--}, machine: ${machine:-unlisted}) ==="
   local rc=0 c
   for c in $(echo "$comps" | tr ',' ' '); do
     case "$c" in
@@ -138,6 +156,7 @@ cmd_apply() {
   if [ $rc -eq 0 ]; then
     local state_dir="$HOME/.local/state/dotfiles"
     mkdir -p "$state_dir" 2>/dev/null
+    if $explicit_machine; then printf '%s\n' "$machine" > "$state_dir/machine"; fi
     printf '%s %s %s\n' \
       "$(git -C "$DOTFILES" rev-parse HEAD 2>/dev/null)" \
       "$(git -C "$CONFIG" rev-parse HEAD 2>/dev/null)" \
@@ -268,7 +287,7 @@ cmd_push() {
     fi
 
     # 원격 apply + verify
-    if ssh $SSH_OPTS "$host" "bash $path/bin/dotfiles apply $comps"; then
+    if ssh $SSH_OPTS "$host" "bash $path/bin/dotfiles apply $comps --machine $n"; then
       summary="$summary\n  $n: OK ($comps)"
     else
       summary="$summary\n  $n: APPLY/VERIFY FAILED"
@@ -489,7 +508,13 @@ case "${1:-}" in
   pull)     shift; cmd_pull "$@" ;;
   push)     shift; cmd_push "$@" ;;
   status)   shift; cmd_status "$@" ;;
-  machines) list_machines | awk -F'|' '{ printf "%-16s host=%-28s components=%-24s transport=%-7s path=%s\n", $1, $2, $3, $4, $5 }' ;;
+  machines)
+    while IFS='|' read -r name host comps transport path; do
+      printf '%-16s host=%-28s components=%-24s transport=%-7s path=%s agents_addition=%s zsh_addition=%s\n' \
+        "$name" "$host" "$comps" "$transport" "$path" \
+        "$(dotfiles_machine_extra "$name" agents_addition)" \
+        "$(dotfiles_machine_extra "$name" zsh_addition)"
+    done < <(list_machines) ;;
   *)
     sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
     exit 1

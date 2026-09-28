@@ -71,8 +71,10 @@ alias gd='git diff'
 # alias cx="codex"
 
 # ============================================================
-# 머신 로컬 레이어 (실파일 — git/동기화 대상 아님, 마지막에 로드해 무엇이든 override 가능)
+# 머신별 추가 설정 (config/machines.toml에서 선택, config/shell/zshrc-additions/에 보관)
+# 그 뒤에 동기화되지 않는 로컬 실파일을 로드한다.
 # ============================================================
+[[ -f ~/.zshrc.d/machine-addition.zsh ]] && source ~/.zshrc.d/machine-addition.zsh
 [[ -f ~/.zshrc.d/local.zsh ]] && source ~/.zshrc.d/local.zsh
 [[ -f ~/.zshrc.d/secrets.zsh ]] && source ~/.zshrc.d/secrets.zsh
 

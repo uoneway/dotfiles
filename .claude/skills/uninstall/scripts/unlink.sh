@@ -19,7 +19,7 @@ unlink_file() {
     local target
     target="$(readlink "$dst")"
     case "$target" in
-      "$CONFIG"/*) ;;
+      "$CONFIG"/*|"$HOME/.local/state/dotfiles/AGENTS."*.md) ;;
       *) echo "  [skip] $label: $dst (symlink is not managed by dotfiles)"; return ;;
     esac
     rm "$dst"
@@ -33,7 +33,10 @@ unlink_file() {
         fi
         ;;
       --keep)
-        if [ -n "$config_src" ] && [ -e "$config_src" ]; then
+        if [ -e "$target" ]; then
+          cp -a "$target" "$dst"
+          echo "  [kept] $label: $dst (copied from managed source)"
+        elif [ -n "$config_src" ] && [ -e "$config_src" ]; then
           cp -a "$config_src" "$dst"
           echo "  [kept] $label: $dst (copied from config/)"
         else

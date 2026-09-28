@@ -10,6 +10,25 @@ CONFIG="$DOTFILES/config"
 BACKUP="$DOTFILES/backup"
 TOOL="${1:?Usage: link-tool.sh <claude|codex|gemini> [--unified|--separate]}"
 MODE="${2:---unified}"
+source "$(dirname "$0")/machine-config.sh"
+
+instruction_source() {
+  local base="$1" label="$2" name extra source_file output tmp
+  name="$(dotfiles_machine_name)"
+  extra="$(dotfiles_machine_extra "$name" agents_addition)"
+  if [ -z "$extra" ]; then
+    printf '%s\n' "$base"
+    return
+  fi
+  source_file="$CONFIG/ai/agents-additions/$extra"
+  [ -f "$source_file" ] || { echo "[error] agents addition not found: $source_file" >&2; return 1; }
+  output="$HOME/.local/state/dotfiles/AGENTS.$label.md"
+  mkdir -p "$(dirname "$output")"
+  tmp="$(mktemp "$output.XXXXXX")"
+  { cat "$base"; printf '\n'; cat "$source_file"; } > "$tmp"
+  mv "$tmp" "$output"
+  printf '%s\n' "$output"
+}
 
 backup_and_link() {
   local src="$1" dst="$2"
@@ -25,6 +44,12 @@ backup_and_link() {
   fi
   ln -sf "$src" "$dst"
   echo "  [ok] $dst -> $src"
+}
+
+link_instruction() {
+  local src
+  src="$(instruction_source "$1" "$2")" || return 1
+  backup_and_link "$src" "$3"
 }
 
 version_at_least() {
@@ -142,11 +167,11 @@ case "$TOOL" in
     [ -d "$CONFIG/ai/claude/commands" ] && backup_and_link_dir "$CONFIG/ai/claude/commands" "$HOME/.claude/commands"
     if [ "$MODE" = "--unified" ]; then
       if [ -f "$CONFIG/ai/AGENTS.md" ]; then
-        backup_and_link "$CONFIG/ai/AGENTS.md" "$HOME/AGENTS.md"
+        link_instruction "$CONFIG/ai/AGENTS.md" unified "$HOME/AGENTS.md"
         remove_legacy_claude_link
       fi
     elif [ -f "$CONFIG/ai/claude/AGENTS.md" ]; then
-      backup_and_link "$CONFIG/ai/claude/AGENTS.md" "$HOME/AGENTS.md"
+      link_instruction "$CONFIG/ai/claude/AGENTS.md" claude "$HOME/AGENTS.md"
       remove_legacy_claude_link
     fi
     link_skills "$HOME/.claude/skills" "$CONFIG/ai/skills" "$CONFIG/ai/claude/skills"
@@ -158,9 +183,9 @@ case "$TOOL" in
     # 심링크하면 머신 간 충돌이 남. base 키만 교체하고 나머지는 보존한다.
     [ -f "$CONFIG/ai/codex/config.base.toml" ] && bash "$(cd "$(dirname "$0")" && pwd)/merge-codex-config.sh"
     if [ "$MODE" = "--unified" ]; then
-      [ -f "$CONFIG/ai/AGENTS.md" ] && backup_and_link "$CONFIG/ai/AGENTS.md" "$HOME/.codex/AGENTS.md"
+      [ -f "$CONFIG/ai/AGENTS.md" ] && link_instruction "$CONFIG/ai/AGENTS.md" unified "$HOME/.codex/AGENTS.md"
     else
-      [ -f "$CONFIG/ai/codex/AGENTS.md" ] && backup_and_link "$CONFIG/ai/codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
+      [ -f "$CONFIG/ai/codex/AGENTS.md" ] && link_instruction "$CONFIG/ai/codex/AGENTS.md" codex "$HOME/.codex/AGENTS.md"
     fi
     [ -d "$CONFIG/ai/codex/rules" ] && backup_and_link_dir "$CONFIG/ai/codex/rules" "$HOME/.codex/rules"
     # 선택 항목: config에 존재할 때만 링크
@@ -171,9 +196,9 @@ case "$TOOL" in
     mkdir -p "$HOME/.gemini"
     [ -f "$CONFIG/ai/gemini/settings.json" ] && backup_and_link "$CONFIG/ai/gemini/settings.json" "$HOME/.gemini/settings.json"
     if [ "$MODE" = "--unified" ]; then
-      [ -f "$CONFIG/ai/AGENTS.md" ] && backup_and_link "$CONFIG/ai/AGENTS.md" "$HOME/.gemini/GEMINI.md"
+      [ -f "$CONFIG/ai/AGENTS.md" ] && link_instruction "$CONFIG/ai/AGENTS.md" unified "$HOME/.gemini/GEMINI.md"
     else
-      [ -f "$CONFIG/ai/gemini/GEMINI.md" ] && backup_and_link "$CONFIG/ai/gemini/GEMINI.md" "$HOME/.gemini/GEMINI.md"
+      [ -f "$CONFIG/ai/gemini/GEMINI.md" ] && link_instruction "$CONFIG/ai/gemini/GEMINI.md" gemini "$HOME/.gemini/GEMINI.md"
     fi
     link_skills "$HOME/.gemini/skills" "$CONFIG/ai/skills"
     ;;

@@ -6,6 +6,7 @@ set -e
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 BACKUP="$DOTFILES/backup"
+source "$(dirname "$0")/machine-config.sh"
 SHELL_TYPE="${1:-zsh}"
 
 backup_and_link() {
@@ -34,6 +35,18 @@ if [ "$SHELL_TYPE" = "zsh" ]; then
       for f in "$CONFIG/shell/zshrc.d"/*.zsh; do
         [ -f "$f" ] && backup_and_link "$f" "$HOME/.zshrc.d/$(basename "$f")"
       done
+    fi
+    # 머신별 추가 셸 설정은 machines.toml에서 선택한다. OS 파일은 zshrc가 자동 선택한다.
+    local_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || exit 1
+    addition_link="$HOME/.zshrc.d/machine-addition.zsh"
+    if [ -n "$local_addition" ]; then
+      addition_source="$CONFIG/shell/zshrc-additions/$local_addition"
+      [ -f "$addition_source" ] || { echo "  [error] zsh addition not found: $addition_source" >&2; exit 1; }
+      backup_and_link "$addition_source" "$addition_link"
+    elif [ -L "$addition_link" ]; then
+      case "$(readlink "$addition_link")" in
+        "$CONFIG/shell/zshrc-additions/"*) rm "$addition_link" ;;
+      esac
     fi
     # 로그인 셸이 zsh가 아니면(chsh 불가 서버 등) bashrc에 인터랙티브 전용 전환 블록 추가.
     # $- 가드로 비대화형(ssh 원격 명령 등)에는 절대 발동하지 않는다.

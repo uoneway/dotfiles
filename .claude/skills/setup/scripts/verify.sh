@@ -6,6 +6,7 @@ set -e
 
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
+source "$(dirname "$0")/machine-config.sh"
 MODE="--unified"
 TOOLS=""
 ERRORS=0
@@ -26,7 +27,7 @@ is_managed() {
     local target
     target="$(readlink "$dst")"
     case "$target" in
-      *dotfiles/config/*) return 0 ;;
+      "$CONFIG"/*|"$HOME/.local/state/dotfiles/AGENTS."*.md) return 0 ;;
     esac
   fi
   return 1
@@ -67,6 +68,28 @@ check_file_exists() {
     echo "  [ok] $label: $path"
   else
     echo "  [fail] $label: $path not found"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
+check_instructions() {
+  local dst="$1" base="$2" label="$3" extra generated
+  extra="$(dotfiles_machine_extra "$(dotfiles_machine_name)" agents_addition)" || { ERRORS=$((ERRORS + 1)); return; }
+  if [ -z "$extra" ]; then
+    check_link "$dst" "$base" "$label"
+    return
+  fi
+  generated="$HOME/.local/state/dotfiles/AGENTS.$label.md"
+  if [ ! -L "$dst" ]; then
+    echo "  [fail] $label: $dst is not linked"
+    ERRORS=$((ERRORS + 1))
+  fi
+  check_link "$dst" "$generated" "$label"
+  if [ ! -f "$CONFIG/ai/agents-additions/$extra" ] || [ ! -f "$generated" ]; then
+    echo "  [fail] $label: selected addition or generated instructions missing"
+    ERRORS=$((ERRORS + 1))
+  elif ! cmp -s <({ cat "$base"; printf '\n'; cat "$CONFIG/ai/agents-additions/$extra"; }) "$generated"; then
+    echo "  [fail] $label: generated instructions differ from selected addition"
     ERRORS=$((ERRORS + 1))
   fi
 }
@@ -124,9 +147,9 @@ if echo "$TOOLS" | grep -q "claude"; then
   echo "--- claude ---"
   check_merged_config "settings.json" "$SCRIPTS/merge-claude-settings.sh"
   if [ "$MODE" = "--unified" ]; then
-    check_link "$HOME/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
+    check_instructions "$HOME/AGENTS.md" "$CONFIG/ai/AGENTS.md" unified
   else
-    check_link "$HOME/AGENTS.md" "$CONFIG/ai/claude/AGENTS.md" "AGENTS.md"
+    check_instructions "$HOME/AGENTS.md" "$CONFIG/ai/claude/AGENTS.md" claude
   fi
   if is_managed "$HOME/.claude/CLAUDE.md"; then
     echo "  [fail] legacy managed link remains: $HOME/.claude/CLAUDE.md"
@@ -141,9 +164,9 @@ if echo "$TOOLS" | grep -q "codex"; then
   echo "--- codex ---"
   check_merged_config "config.toml" "$SCRIPTS/merge-codex-config.sh"
   if [ "$MODE" = "--unified" ]; then
-    check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/AGENTS.md" "AGENTS.md"
+    check_instructions "$HOME/.codex/AGENTS.md" "$CONFIG/ai/AGENTS.md" unified
   else
-    check_link "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" "AGENTS.md"
+    check_instructions "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" codex
   fi
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
   check_skill_links "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
@@ -154,9 +177,9 @@ if echo "$TOOLS" | grep -q "gemini"; then
   echo "--- gemini ---"
   check_link "$HOME/.gemini/settings.json" "$CONFIG/ai/gemini/settings.json" "settings.json"
   if [ "$MODE" = "--unified" ]; then
-    check_link "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/AGENTS.md" "GEMINI.md"
+    check_instructions "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/AGENTS.md" unified
   else
-    check_link "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/gemini/GEMINI.md" "GEMINI.md"
+    check_instructions "$HOME/.gemini/GEMINI.md" "$CONFIG/ai/gemini/GEMINI.md" gemini
   fi
   echo ""
 fi
@@ -169,6 +192,18 @@ if [ "$USER_SHELL" = "zsh" ]; then
     for f in "$CONFIG/shell/zshrc.d"/*.zsh; do
       [ -f "$f" ] && check_link "$HOME/.zshrc.d/$(basename "$f")" "$f" "zshrc.d/$(basename "$f")"
     done
+  fi
+  zsh_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || { echo "  [fail] machine selection invalid"; ERRORS=$((ERRORS + 1)); zsh_addition=""; }
+  if [ -n "$zsh_addition" ]; then
+    check_file_exists "$CONFIG/shell/zshrc-additions/$zsh_addition" "selected zsh addition"
+    if [ ! -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
+      echo "  [fail] machine-addition.zsh is not linked"
+      ERRORS=$((ERRORS + 1))
+    fi
+    check_link "$HOME/.zshrc.d/machine-addition.zsh" "$CONFIG/shell/zshrc-additions/$zsh_addition" "machine-addition.zsh"
+  elif [ -e "$HOME/.zshrc.d/machine-addition.zsh" ] || [ -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
+    echo "  [fail] machine-addition.zsh exists but no zsh_addition is selected"
+    ERRORS=$((ERRORS + 1))
   fi
 else
   check_link "$HOME/.bashrc" "$CONFIG/shell/bashrc" "bashrc"
@@ -195,3 +230,4 @@ else
   echo "$ERRORS issue(s) found."
 fi
 echo "=== END ==="
+[ "$ERRORS" -eq 0 ]
