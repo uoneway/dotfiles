@@ -32,6 +32,8 @@ git clone <config-repo> ~/dotfiles/config     # 개인 설정 (private repo)
 bash ~/dotfiles/bin/dotfiles apply
 ```
 
+`apply`는 `config/machines.toml`의 `apps` 목록을 설치한 뒤 설정을 적용합니다. 설치 방법은 공용 `apps.json`에 정의하고, 개인 `config/apps.json`으로 앱을 추가하거나 지정한 필드만 덮어씁니다. `[local]`은 이름 없는 로컬 실행 전용 설정이며 앱 목록은 Codex CLI·Claude Code와 Mac의 Right Shift English입니다. `[defaults]`는 등록된 머신이 생략한 설정의 공통 기본값으로, `components`, `apps`, 배포 방식과 경로, 추가 인스트럭션·셸 설정을 지원합니다. [앱 설치와 버전 선택](docs/INSTALL_APPS.md)을 참고하세요. 설치를 건너뛰려면 `apply --skip-install`을 사용합니다.
+
 ## `/setup` Does
 
 `/setup` skill이 환경을 분석하고 질문 몇 개 후 자동으로 설정합니다.
@@ -102,6 +104,7 @@ Gemini CLI는 템플릿만 제공하며 기본 비활성입니다 (Antigravity �
 ```text
 dotfiles/                              # public: 프레임워크
 ├── bin/dotfiles                       #   CLI: apply / pull / push / status / machines
+├── apps.json                          #   공용 앱 설치 방법과 기본 버전
 ├── .claude/skills/
 │   ├── setup/                         #   /setup (인스톨러)
 │   ├── uninstall/                     #   /uninstall (제거/복원)
@@ -109,7 +112,9 @@ dotfiles/                              # public: 프레임워크
 ├── templates/                         # 기본값 템플릿
 │
 ├── config/                            # private: 내 설정 (gitignored, 별도 repo)
-│   ├── machines.toml                  #   배포 대상 머신 (components, transport)
+│   ├── machines.toml                  #   배포 대상 머신과 apps 설치 목록
+│   ├── apps.json                      #   개인 앱 추가와 필드 덮어쓰기
+│   ├── installers/                    #   개인 설치 스크립트
 │   ├── ai/
 │   │   ├── AGENTS.md                  #   공유 인스트럭션 → 모든 도구
 │   │   ├── agents-additions/          #   machines.toml에서 선택하는 추가 인스트럭션

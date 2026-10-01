@@ -4,6 +4,7 @@ description: "dotfiles 초기 설치. 환경 분석, AI 도구 설정, 셸 구�
 model: sonnet
 allowed-tools:
   - Bash(bash .claude/skills/setup/scripts/*)
+  - Bash(bash bin/dotfiles *)
   - Bash(ln -sf *)
   - Bash(curl *)
   - Bash(sh -c *)
@@ -110,7 +111,9 @@ config/ 디렉토리가 없는 경우 (최초 실행):
 bash .claude/skills/setup/scripts/init-config.sh
 ```
 
-config/가 이미 존재하면 이 단계를 건너뛴다.
+config/가 이미 존재하면 이 단계를 건너뛴다. 초기 복사는 `config/apps.json`, `config/machines.toml`, `config/installers/`도 준비한다.
+
+앱 설치 방법은 공용 `apps.json`과 개인 `config/apps.json`을 병합해 읽는다. 설치 대상은 `config/machines.toml`에 저장한다. 이름 없는 로컬 실행은 `[local].apps`, 등록된 머신은 자기 `apps` 또는 생략 시 `[defaults].apps`를 사용한다. `[defaults]`는 `components`, `transport`, `path`, 추가 인스트럭션·셸 파일 같은 앱 외 설정도 지원한다. `[local]`은 기본값을 상속하지 않고 등록 머신에도 상속되지 않는다. Q1에서 선택한 CLI를 해당 목록에 반영한다. 기존에 선택된 다른 앱은 유지하고 새 앱을 임의로 추가하지 않는다. 자세한 필드와 예시는 [앱 설치 가이드](../../../docs/INSTALL_APPS.md)를 참고한다.
 
 ### 인스트럭션 모드 처리 (Q2 결과에 따라)
 
@@ -144,13 +147,18 @@ Step 1 결과를 기반으로 AI가 판단한다.
 
 ### 미설치 AI 도구 안내
 
-Q1에서 선택했지만 미설치인 도구가 있으면 설치 방법을 안내한다:
+Q1에서 선택했지만 미설치인 도구가 있으면 설치할지, 나중에 할지 확인한다. 이미 설치를 요청한 도구는 같은 질문을 반복하지 않는다.
 
-- **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux) 또는 `brew install --cask claude-code`
-- **Codex CLI**: `npm install -g @openai/codex` 또는 `brew install --cask codex` (macOS)
-- **Gemini CLI**: `npm install -g @google/gemini-cli` 또는 `brew install gemini-cli`
+Codex CLI와 Claude Code는 카탈로그의 공식 설치 방식과 버전 정책을 사용한다. 설치하기로 한 도구만 명시해 실행한다. 아래 예시는 두 도구를 모두 선택한 경우다.
 
-사용자가 지금 설치할지, 나중에 할지 선택하게 한다.
+```bash
+bash bin/dotfiles install codex,claude --dry-run
+bash bin/dotfiles install codex,claude
+```
+
+한 도구만 선택했으면 그 이름만 전달한다. 계속 관리할 설치 대상은 `machines.toml`의 해당 `apps` 목록에도 반영한다. 버전 고정은 개인 `apps.json`의 해당 앱에 `version`만 적는다. 실행 실패 시 설정 연결 전에 문제를 해결한다.
+
+Gemini CLI는 현재 공용 앱 카탈로그에 없다. 선택한 경우 개인 카탈로그에 Homebrew 또는 개인 설치 스크립트 방식으로 정의하고 설치 목록에 추가한다. 설치하지 않은 도구의 설정만 준비하는 경우에는 설치를 건너뛰었다고 보고한다.
 
 ### 심링크 생성 + 설정 병합
 
@@ -361,5 +369,8 @@ source ~/.zshrc   # 또는 source ~/.bashrc
 - 공유 설정 변경: `settings.base.json` / `config.base.toml` 수정 후 `dotfiles apply` (또는 link-tool.sh 재실행)
 - 새 공용 스킬: `config/ai/skills/<name>/SKILL.md` / Claude 전용: `config/ai/claude/skills/<name>/SKILL.md`
 - 서드파티 스킬: `config/ai/skills-manifest.toml`에 선언
-- `templates/`는 기본값이므로 건드리지 않아도 됨
+- 앱 설치 방법과 버전: 개인 `config/apps.json`에서 앱을 추가하거나 공용 정의의 일부 필드를 덮어쓴다
+- 설치 대상: `config/machines.toml`의 `[local].apps`, `[defaults].apps`, 머신별 `apps`에서 선택한다
+- 개인 설치 코드: `config/installers/`에 스크립트를 두고 개인 앱 정의에서 연결한다
+- `templates/`는 초기 설정 예시이므로 개인 설정은 `config/`에서 변경한다
 - 변경 후 `dotfiles apply` 또는 `/setup` 재실행으로 갱신

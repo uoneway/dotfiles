@@ -7,3 +7,6 @@ backup/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python verification caches
+__pycache__/

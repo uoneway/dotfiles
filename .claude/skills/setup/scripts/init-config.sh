@@ -23,6 +23,10 @@ cp -r "$TEMPLATES/shell" "$CONFIG/shell"
 # 머신 인벤토리 (멀티 머신 배포용)
 [ -f "$TEMPLATES/machines.toml" ] && cp "$TEMPLATES/machines.toml" "$CONFIG/machines.toml"
 
+# 개인 앱 덮어쓰기와 설치 스크립트 골격
+[ -f "$TEMPLATES/apps.json" ] && cp "$TEMPLATES/apps.json" "$CONFIG/apps.json"
+[ -d "$TEMPLATES/installers" ] && cp -r "$TEMPLATES/installers" "$CONFIG/installers"
+
 # config/ai/claude 내 setup, uninstall 스킬은 제외 (템플릿 전용)
 rm -rf "$CONFIG/ai/claude/skills/setup"
 rm -rf "$CONFIG/ai/claude/skills/uninstall"

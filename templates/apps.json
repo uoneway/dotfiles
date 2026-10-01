@@ -1,0 +1,23 @@
+{
+  "codex": {
+    "version": "latest",
+    "description": "공용 정의 중 version만 덮어쓴다. 고정하려면 0.159.2 같은 버전을 적는다."
+  },
+  "claude": {
+    "version": "latest"
+  },
+  "right-shift-english": {
+    "version": "latest"
+  },
+  "my-tool": {
+    "description": "개인 앱 추가 예시. 스크립트를 작성하고 enabled를 true로 바꾼 뒤 machines.toml의 apps 목록에 추가한다.",
+    "enabled": false,
+    "method": "script",
+    "version": "1.2.3",
+    "path": "installers/my-tool.sh",
+    "interpreter": "bash",
+    "args": [
+      "{version}"
+    ]
+  }
+}

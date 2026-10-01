@@ -1,0 +1,83 @@
+{
+  "codex": {
+    "method": "official",
+    "adapter": "codex",
+    "version": "latest",
+    "installer_url": "https://chatgpt.com/codex/install.sh",
+    "latest_urls": [
+      "https://releases.openai.com/codex/channels/latest",
+      "https://api.github.com/repos/openai/codex/releases/latest"
+    ],
+    "latest_format": "tag_name",
+    "tag_prefix": "rust-v"
+  },
+  "claude": {
+    "method": "official",
+    "adapter": "claude",
+    "version": "latest",
+    "installer_url": "https://claude.ai/install.sh",
+    "latest_urls": [
+      "https://downloads.claude.ai/claude-code-releases/latest"
+    ],
+    "latest_format": "text"
+  },
+  "right-shift-english": {
+    "method": "right-shift-app",
+    "version": "latest",
+    "platforms": [
+      "Darwin"
+    ],
+    "package": "packages/right-shift-english"
+  },
+  "ripgrep": {
+    "method": "homebrew",
+    "package": "ripgrep",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "jq": {
+    "method": "homebrew",
+    "package": "jq",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "fd": {
+    "method": "homebrew",
+    "package": "fd",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "fzf": {
+    "method": "homebrew",
+    "package": "fzf",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "git": {
+    "method": "homebrew",
+    "package": "git",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "tmux": {
+    "method": "homebrew",
+    "package": "tmux",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "neovim": {
+    "method": "homebrew",
+    "package": "neovim",
+    "kind": "formula",
+    "version": "latest"
+  },
+  "visual-studio-code": {
+    "method": "homebrew",
+    "package": "visual-studio-code",
+    "kind": "cask",
+    "version": "latest",
+    "platforms": [
+      "Darwin"
+    ]
+  }
+}

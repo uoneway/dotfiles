@@ -2,6 +2,8 @@
 
 ## 현재 상태 (완료된 것)
 
+- **1순위 — 앱/CLI 설치 정책 구현**: `dotfiles install`, `apply` 설치 단계, 공용 `apps.json`과 개인 `config/apps.json`의 필드별 병합, `config/machines.toml`의 로컬 전용 `local.apps`, 등록 머신의 앱·구성 요소·배포 설정 기본값 `[defaults]`와 머신별 설정, 최신/지정 버전(공식 CLI, Homebrew, 개인 스크립트), CLI 없이 실행하는 `install.sh --apps/--setup`. Right Shift English는 버전별 소스 빌드로 설치한다. 사용법과 테스트는 `docs/INSTALL_APPS.md` 참고.
+
 - **아키텍처 확정·구현 완료**: config/ 단일 소스 + 심링크(인스트럭션·스킬·agents) + 병합(settings.base.json/config.base.toml — base 키만 교체, 머신 상태 보존) + manifest(`npx skills`, mattpocock 22종)
 - **멀티 머신 배포 가동 중**: `bin/dotfiles` CLI (apply/pull/push/status/machines), machines.toml에 3대 등록 (link, doomfist-common, link-ubase — 전부 hub transport, shell,claude,codex)
 - 이동형 랩탑은 `machines.toml`에 등록하지 않고 로컬 `dotfiles pull`로 두 저장소 갱신 → apply → verify

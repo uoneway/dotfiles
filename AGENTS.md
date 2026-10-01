@@ -6,8 +6,9 @@
 
 ## 레포 구조
 
-- `dotfiles/` (이 레포, public) — CLI(`bin/dotfiles`)와 `templates/`만 담은 프레임워크.
+- `dotfiles/` (이 레포, public) — CLI(`bin/dotfiles`), 공용 앱 카탈로그(`apps.json`), `templates/`, 버전별 앱 소스를 담은 프레임워크.
 - `dotfiles/config/` (private, 별도 git 레포 `dotfiles-config`) — 실제 개인 설정. `**dotfiles`와는 완전히 별개의 git 히스토리를 가진 중첩 레포**다. 항상 `git status`와 `git -C config status`를 각각 확인할 것 — 하나만 커밋하고 다른 하나를 잊기 쉽다.
+- 앱 설치 방법은 공용 `apps.json`에 정의하고 개인 `config/apps.json`으로 앱을 추가하거나 필드별로 덮어쓴다. 설치할 머신은 `config/machines.toml`의 `local.apps`(이름 없는 로컬 실행), `defaults.apps`(등록 머신의 생략 시 기본값), `machines.<이름>.apps`에서 선택한다. 로컬 설정은 `[defaults]`를 상속하지 않는다. `[defaults]`는 앱 외에도 `components`, `transport`, `path`, `agents_addition`, `zsh_addition`의 공통 기본값을 지원한다. `components`는 설정 적용 범위이며 앱 선택에 사용하지 않는다. 개인 설치 스크립트는 `config/installers/`에 둔다.
 - 전체 아키텍처(심링크 vs 병합 대상 표, 동기화 범위)는 `README.md`가 기준 문서다. 여기서는 그걸 반복하지 않고 작업 규칙만 다룬다.
 
 ## 핵심 원칙

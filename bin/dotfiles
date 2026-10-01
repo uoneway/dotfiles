@@ -7,6 +7,7 @@
 #   - 원격이 dirty면 건너뛰고 보고한다 (--force로만 덮어씀)
 #
 # Usage:
+#   dotfiles install [tools] [--machine name] [--latest | --version tool=x.y.z] [--dry-run]
 #   dotfiles apply [components] [--machine name] # 이 머신에 적용 (예: shell,claude,codex)
 #   dotfiles pull [components]                 # 허브에서 두 레포를 받은 뒤 이 머신에 적용
 #   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
@@ -33,27 +34,16 @@ source "$SCRIPTS/machine-config.sh"
 # ssh 연결 재사용 — 같은 머신에 반복 접속(push의 dirty-check/pull/apply, 반복 status 호출)이
 # ProxyJump 홉을 매번 새로 열지 않도록 60초간 소켓을 유지한다
 SSH_CM_DIR="$HOME/.ssh/dotfiles-cm"
-mkdir -p "$SSH_CM_DIR" 2>/dev/null && chmod 700 "$SSH_CM_DIR" 2>/dev/null
+case "${1:-}" in
+  push|status) mkdir -p "$SSH_CM_DIR" 2>/dev/null && chmod 700 "$SSH_CM_DIR" 2>/dev/null ;;
+esac
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=6 -o ControlMaster=auto -o ControlPersist=60s -o ControlPath=$SSH_CM_DIR/%C"
 
 # ---------- machines.toml ----------
 # 출력: 한 줄에 name|host|components|transport|path
 list_machines() {
   [ -f "$MACHINES_FILE" ] || return 0
-  awk '
-  function emit() { if (name != "") print name "|" host "|" comps "|" (transport == "" ? "hub" : transport) "|" (path == "" ? "~/dotfiles" : path) }
-  /^\[machines\./ {
-    emit()
-    name = $0; sub(/^\[machines\./, "", name); sub(/\][ \t]*$/, "", name)
-    host = ""; comps = ""; transport = ""; path = ""
-    next
-  }
-  /^[ \t]*host[ \t]*=/       { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); host = v }
-  /^[ \t]*components[ \t]*=/ { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); comps = v }
-  /^[ \t]*transport[ \t]*=/  { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); transport = v }
-  /^[ \t]*path[ \t]*=/       { v = $0; sub(/^[^=]*=[ \t]*"/, "", v); sub(/"[ \t]*$/, "", v); path = v }
-  END { emit() }
-  ' "$MACHINES_FILE"
+  python3 "$SCRIPTS/machine-config.py" list
 }
 
 machine_line() {
@@ -93,12 +83,18 @@ secret_scan() {
 
 # ---------- apply (로컬/원격 공용, 무인 실행) ----------
 cmd_apply() {
-  local comps="" machine="" explicit_machine=false
+  local comps="" machine="" explicit_machine=false skip_install=false
+  local install_options=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --machine)
         [ $# -ge 2 ] || { echo "[error] --machine requires a name" >&2; return 1; }
         machine="$2"; explicit_machine=true; shift 2 ;;
+      --skip-install) skip_install=true; shift ;;
+      --latest) install_options+=("--latest"); shift ;;
+      --version)
+        [ $# -ge 2 ] || { echo "[error] --version requires TOOL=VERSION" >&2; return 1; }
+        install_options+=("--version" "$2"); shift 2 ;;
       -*) echo "[error] unknown apply option: $1" >&2; return 1 ;;
       *)
         [ -z "$comps" ] || { echo "[error] too many apply arguments" >&2; return 1; }
@@ -112,11 +108,26 @@ cmd_apply() {
   fi
   export DOTFILES_MACHINE="$machine"
   if [ -z "$comps" ]; then
+    comps="$(dotfiles_machine_extra "$machine" components)" || return 1
+  fi
+  if [ -z "$comps" ]; then
     # 미지정 시 config 내용 기반 자동 감지
     comps="shell"
     [ -f "$CONFIG/ai/claude/settings.base.json" ] && comps="$comps,claude"
     [ -f "$CONFIG/ai/codex/config.base.toml" ] && comps="$comps,codex"
     [ -f "$CONFIG/ai/gemini/settings.json" ] && [ -d "$HOME/.gemini" ] && comps="$comps,gemini"
+  fi
+
+  if ! $skip_install; then
+    if [ ${#install_options[@]} -gt 0 ]; then
+      python3 "$SCRIPTS/install-apps.py" "${install_options[@]}" || return 1
+    else
+      # Bash 3.2 with set -u cannot expand an empty array.
+      python3 "$SCRIPTS/install-apps.py" || return 1
+    fi
+  elif [ ${#install_options[@]} -ne 0 ]; then
+    echo "[error] --skip-install cannot be combined with version options" >&2
+    return 1
   fi
 
   # 인스트럭션 모드 감지: 도구별 파일이 있으면 separate, 없으면 unified
@@ -504,19 +515,22 @@ cmd_status() {
 
 # ---------- main ----------
 case "${1:-}" in
+  install)  shift; python3 "$SCRIPTS/install-apps.py" "$@" ;;
   apply)    shift; cmd_apply "$@" ;;
   pull)     shift; cmd_pull "$@" ;;
   push)     shift; cmd_push "$@" ;;
   status)   shift; cmd_status "$@" ;;
   machines)
+    machine_rows="$(list_machines)" || exit 1
     while IFS='|' read -r name host comps transport path; do
+      [ -n "$name" ] || continue
       printf '%-16s host=%-28s components=%-24s transport=%-7s path=%s agents_addition=%s zsh_addition=%s\n' \
         "$name" "$host" "$comps" "$transport" "$path" \
         "$(dotfiles_machine_extra "$name" agents_addition)" \
         "$(dotfiles_machine_extra "$name" zsh_addition)"
-    done < <(list_machines) ;;
+    done <<< "$machine_rows" ;;
   *)
-    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,16p' "$SELF" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
