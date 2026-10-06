@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from urllib.parse import urlparse
 
@@ -335,6 +336,24 @@ def app_plist(version):
             "NSPrincipalClass": "NSApplication"}
 
 
+def app_is_running(domain):
+    result = subprocess.run(["launchctl", "print", f"{domain}/{LABEL}"],
+                            capture_output=True, text=True)
+    return result.returncode == 0 and bool(re.search(r"^\s*state = running$", result.stdout, re.MULTILINE))
+
+
+def wait_for_app(domain, timeout=3):
+    deadline = time.monotonic() + timeout
+    while True:
+        if app_is_running(domain):
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError("Right Shift English did not stay running; check "
+                               "~/.local/share/karabiner-shift-english/daemon-error.log. "
+                               "The terminal permission check alone does not confirm app access.")
+        time.sleep(0.2)
+
+
 def install_app(requested, home, root=ROOT, recipe=None):
     version, source = app_source(requested, root, recipe)
     app = home / "Applications/Right Shift English.app"
@@ -391,12 +410,22 @@ def install_app(requested, home, root=ROOT, recipe=None):
     loaded = run(["launchctl", "print", f"{domain}/{LABEL}"], check=False).returncode == 0
     if not loaded:
         run(["launchctl", "bootstrap", domain, str(agent)])
-    permission = run([str(binary), "--check-permission"], check=False).returncode == 0
+    permission = app_is_running(domain) or run([str(binary), "--check-permission"], check=False).returncode == 0
     if permission:
         run(["launchctl", "kickstart", f"{domain}/{LABEL}"])
+        try:
+            wait_for_app(domain)
+        except RuntimeError:
+            if "--request-permission" in source.read_text():
+                run(["open", "-n", str(app), "--args", "--request-permission"], check=False)
+            raise
+        print(f"[ok] right-shift-english {version} ({requested}); login startup registered", flush=True)
     else:
-        print("[action] Enable Right Shift English in macOS Accessibility, then run dotfiles install right-shift-english", flush=True)
-    print(f"[ok] right-shift-english {version} ({requested}); login startup registered", flush=True)
+        # Older pinned releases do not implement the prompt helper.
+        if "--request-permission" in source.read_text():
+            run(["open", "-n", str(app), "--args", "--request-permission"], check=False)
+        print(f"[action] right-shift-english {version} installed; Accessibility permission required before use. "
+              "Enable Right Shift English in macOS System Settings, then run dotfiles install right-shift-english", flush=True)
     return version
 
 

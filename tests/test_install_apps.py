@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import io
 import importlib.util
 import json
 from pathlib import Path
@@ -183,7 +185,7 @@ class InstallerTests(unittest.TestCase):
     def test_unknown_app_release_fails_before_install(self):
         with self.assertRaises(ValueError): apps.app_source("9.9.9")
         version, source = apps.app_source("latest")
-        self.assertEqual(version, "1.0.1")
+        self.assertEqual(version, "1.0.2")
         self.assertTrue(source.exists())
 
     def test_missing_app_release_stops_entire_plan_before_cli_install(self):
@@ -592,9 +594,11 @@ class InstallerTests(unittest.TestCase):
         (scripts / "install-manifest-skills.sh").write_text("exit 0\n")
         self.machines('[defaults]\ncomponents = "shell,claude,codex"\napps = []\n[machines.work]\nhost = "work"\n')
         for arguments, expected in (([], "shell,claude,codex"), (["codex"], "codex")):
-            result = subprocess.run(["bash", str(cli), "apply", *arguments, "--machine", "work"], capture_output=True, text=True)
+            result = subprocess.run(["bash", str(cli), "apply", *arguments, "--machine", "work"], capture_output=True, text=True,
+                                    env={**os.environ, "HOME": str(self.root)})
             self.assertEqual(result.returncode, 1)  # Prevent writing an applied stamp.
             self.assertIn("components: " + expected, result.stdout, result.stderr)
+            self.assertEqual((self.root / ".local/bin/dotfiles").readlink(), cli)
 
     def test_invalid_default_components_and_extra_files_fail(self):
         for content in ('[defaults]\ncomponents = "shell,bad"', '[defaults]\ncomponents = []',
@@ -608,19 +612,37 @@ class InstallerTests(unittest.TestCase):
         commands = []
         def run(command, env=None, check=True):
             commands.append(command)
+            if command[0] == "open" or command[-1] in ("--check-permission", "--request-permission"):
+                return subprocess.CompletedProcess(command, 2)
             if command[0] == "launchctl":
                 return subprocess.CompletedProcess(command, 1 if command[1] == "print" else 0)
             return real_run(command, env=env, check=check)
-        with patch.object(apps, "run", side_effect=run):
-            apps.install_app("latest", self.root)
+        with patch.object(apps, "run", side_effect=run), patch.object(apps, "app_is_running", return_value=False):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                apps.install_app("latest", self.root)
+            self.assertIn(["open", "-n", str(self.root / "Applications/Right Shift English.app"), "--args", "--request-permission"], commands)
+            self.assertIn("[action]", output.getvalue())
+            self.assertNotIn("[ok] right-shift-english", output.getvalue())
             app = self.root / "Applications/Right Shift English.app"
-            self.assertEqual(apps.reported_version(app / "Contents/MacOS/shift-english"), "1.0.1")
+            self.assertEqual(apps.reported_version(app / "Contents/MacOS/shift-english"), "1.0.2")
             agent = plistlib.loads((self.root / f"Library/LaunchAgents/{apps.LABEL}.plist").read_bytes())
             self.assertEqual(agent["KeepAlive"], {"Crashed": True})
             self.assertEqual(agent["ProgramArguments"], [str(app / "Contents/MacOS/shift-english")])
             commands.clear()
-            apps.install_app("1.0.1", self.root)
+            apps.install_app("1.0.2", self.root)
             self.assertFalse(any(c[0] in ("swiftc", "codesign") for c in commands))
+
+    def test_startup_failure_does_not_pass_health_check(self):
+        result = subprocess.CompletedProcess([], 0, stdout="state = not running\n")
+        with patch.object(apps.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(RuntimeError, "did not stay running"):
+                apps.wait_for_app("gui/501", timeout=0)
+
+    def test_running_app_passes_health_check(self):
+        result = subprocess.CompletedProcess([], 0, stdout="\tstate = running\n")
+        with patch.object(apps.subprocess, "run", return_value=result):
+            apps.wait_for_app("gui/501", timeout=0)
 
     def test_build_failure_preserves_existing_app(self):
         app = self.root / "Applications/Right Shift English.app"

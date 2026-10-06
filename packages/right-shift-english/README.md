@@ -4,6 +4,35 @@ Hold right Shift for temporary uppercase English; release it to restore the
 baseline input source. F18 toggles the baseline between ABC and Korean. The app
 runs independently of Karabiner; Karabiner may map Caps Lock to F18.
 
+## 1.0.2: request Accessibility permission during installation
+
+When permission is missing, the installer requests the macOS Accessibility
+prompt and reports that approval is required before use. Approve the app in
+System Settings, then run `dotfiles install right-shift-english` to start it.
+The app checks and requests Core Graphics PostEvent access, which is required
+for its filtering keyboard event tap and synthetic input-source shortcut events.
+An Accessibility check alone can disagree with this permission on macOS 27.
+The installer opens the app separately to request permission and confirms the
+LaunchAgent is running before reporting success. An already-running daemon takes
+precedence over a terminal-launched permission check.
+
+The system controls whether it displays the prompt again. Silent permission
+checks remain available through `--check-permission`.
+
+If the System Settings toggle is enabled but the daemon exits, inspect
+`~/.local/share/karabiner-shift-english/daemon-error.log` and the macOS TCC log.
+When TCC specifically reports a denied PostEvent record despite the enabled
+toggle, reset only this app's PostEvent approval, preserving its Accessibility
+approval, then restart the app:
+
+```sh
+tccutil reset PostEvent local.karabiner.shift-english
+dotfiles install right-shift-english
+```
+
+This is a recovery step for a confirmed permission mismatch, not an automatic
+part of installation. Approve any permission request shown by macOS.
+
 ## 1.0.1: activate Korean in the focused app
 
 `TISSelectInputSource` can update the menu-bar source ID without activating the
