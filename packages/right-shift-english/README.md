@@ -4,6 +4,21 @@ Hold right Shift for temporary uppercase English; release it to restore the
 baseline input source. F18 toggles the baseline between ABC and Korean. The app
 runs independently of Karabiner; Karabiner may map Caps Lock to F18.
 
+## 1.0.3: stop automatic recovery after a failure
+
+A failed transition logs its diagnostic details and disables automatic source
+repairs for the rest of that attempt. Idle timers, ordinary typing, status queries,
+and shutdown do not retry the failed transition. Queued text passes through using
+the current input source. The original baseline remains journaled until a
+successful restore.
+
+The next explicit right-Shift press/release, F18 toggle, or source selection starts
+a new attempt. A successful transition enables normal drift checks again.
+`status` and `barrier` only observe state. Replies expose `automatic_recovery`,
+`consecutive_failures`, and `last_error`; timed retry intervals are removed.
+The initial attempt still has its existing two-second timeout. Starting a new
+process may make one startup restore attempt from the saved journal.
+
 ## 1.0.2: bounded recovery after failed transitions
 
 A failed source transition previously triggered repeated background repairs with
@@ -48,14 +63,14 @@ Build and run the keyboard pipeline regression checks when the regular daemon
 is stopped and the keyboard is not in use:
 
 ```sh
-swiftc -O packages/right-shift-english/1.0.2/ShiftEnglish.swift -o /tmp/right-shift-english-test
+swiftc -O packages/right-shift-english/1.0.3/ShiftEnglish.swift -o /tmp/right-shift-english-test
 /tmp/right-shift-english-test --self-test-recovery
 /tmp/right-shift-english-test --self-test-keyboard
 ```
 
 The recovery regression injects failures without changing the system input source
-and checks retry intervals, keyboard delivery during cooldown, and successful
-recovery. The keyboard pipeline checks exercise queued events, both Shifts,
+and checks that failed restores retain their journal, automatic retries stop,
+ordinary typing and status queries do not retry, and explicit retries can recover. The keyboard pipeline checks exercise queued events, both Shifts,
 lost releases, other modifiers, F18 during Shift, and late input-source changes. They verify source selection at
 event delivery, including native CJK activation, but do not assert what a target
 app actually inserts.
