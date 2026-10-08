@@ -3,7 +3,14 @@ import Carbon
 import Darwin
 
 if CommandLine.arguments.contains("--version") { print("Right Shift English 1.0.4"); exit(0) }
-if CommandLine.arguments.contains("--check-permission") { exit(AXIsProcessTrusted() ? 0 : 2) }
+if CommandLine.arguments.contains("--request-permission") {
+    let trusted = CGRequestPostEventAccess()
+    // macOS 27 can grant Accessibility independently of PostEvent. Request
+    // the permission used by the filtering event tap and synthetic key events.
+    if !trusted { RunLoop.current.run(until: Date(timeIntervalSinceNow: 1)) }
+    exit(trusted ? 0 : 2)
+}
+if CommandLine.arguments.contains("--check-permission") { exit(CGPreflightPostEventAccess() ? 0 : 2) }
 
 // All input-source operations run on the main run loop. The socket receiver
 // only queues messages; it never selects sources from a worker thread.

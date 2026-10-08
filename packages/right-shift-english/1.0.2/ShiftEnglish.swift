@@ -3,7 +3,14 @@ import Carbon
 import Darwin
 
 if CommandLine.arguments.contains("--version") { print("Right Shift English 1.0.2"); exit(0) }
-if CommandLine.arguments.contains("--check-permission") { exit(AXIsProcessTrusted() ? 0 : 2) }
+if CommandLine.arguments.contains("--request-permission") {
+    let trusted = CGRequestPostEventAccess()
+    // macOS 27 can grant Accessibility independently of PostEvent. Request
+    // the permission used by the filtering event tap and synthetic key events.
+    if !trusted { RunLoop.current.run(until: Date(timeIntervalSinceNow: 1)) }
+    exit(trusted ? 0 : 2)
+}
+if CommandLine.arguments.contains("--check-permission") { exit(CGPreflightPostEventAccess() ? 0 : 2) }
 
 // All input-source operations run on the main run loop. The socket receiver
 // only queues messages; it never selects sources from a worker thread.
@@ -80,14 +87,6 @@ struct PreviousSourceShortcut {
 }
 
 final class Controller {
-    // Fault injection only used by the recovery regression; production uses activate.
-    var activationOverride: ((String, Double, @escaping (Bool) -> Void) -> Void)?
-    var recoveryClock: () -> Double = { ProcessInfo.processInfo.systemUptime }
-    var consecutiveFailures = 0
-    var retryAfter = 0.0
-    var lastError: [String: Any]?
-    var transitionStage = "idle"
-    var recoveryAllowed: Bool { recoveryClock() >= retryAfter }
     var original: String?
     var held = false
     var baseline = currentID()
@@ -120,7 +119,7 @@ final class Controller {
     }
 
     func reconcile() {
-        if !busy, queue.isEmpty, recoveryAllowed {
+        if !busy, queue.isEmpty {
             if !held, original != nil { receive(["command": "end"]) { _ in } }
             else if baselineOwned, currentID() != (held ? english : baseline) {
                 receive(["command": "repair"]) { _ in }
@@ -138,7 +137,6 @@ final class Controller {
         busy = true
         let (message, completion) = queue.removeFirst()
         let start = ProcessInfo.processInfo.systemUptime
-        transitionStage = "dispatch"
         received += 1
         var target: String?
         var restoring = false
@@ -184,23 +182,7 @@ final class Controller {
         default: valid = false
         }
         let finish: (Bool) -> Void = { ok in
-            if !ok {
-                self.errors += 1
-                self.consecutiveFailures += 1
-                let delay = min(30.0, pow(2.0, Double(min(self.consecutiveFailures - 1, 5))))
-                self.retryAfter = self.recoveryClock() + delay
-                self.lastError = ["at": ISO8601DateFormatter().string(from: Date()),
-                                  "command": message["command"] as? String ?? "unknown",
-                                  "stage": self.transitionStage, "target": target ?? "",
-                                  "current": currentID(), "retry_in_seconds": delay]
-                if let data = try? JSONSerialization.data(withJSONObject: self.lastError!, options: .sortedKeys),
-                   let details = String(data: data, encoding: .utf8) {
-                    fputs("ShiftEnglish: transition failed \(details)\n", stderr)
-                }
-            } else if target != nil {
-                self.consecutiveFailures = 0
-                self.retryAfter = 0
-            }
+            if !ok { self.errors += 1 }
             if ok, let target {
                 if restoring { self.baseline = target; self.baselineOwned = true }
             }
@@ -214,44 +196,31 @@ final class Controller {
                         "original": self.original ?? NSNull(), "baseline": self.baseline,
                         "baseline_owned": self.baselineOwned, "repairs": self.repairs,
                         "received": self.received, "native_activations": self.nativeActivations,
-                        "errors": self.errors, "maximum_operation_ms": self.maximumMilliseconds,
-                        "consecutive_failures": self.consecutiveFailures,
-                        "retry_in_seconds": max(0, self.retryAfter - self.recoveryClock()),
-                        "last_error": self.lastError ?? NSNull()])
+                        "errors": self.errors, "maximum_operation_ms": self.maximumMilliseconds])
             self.busy = false
             self.pump()
         }
         if !valid { finish(false) }
         else if let target {
-            if let activationOverride { activationOverride(target, start + 2, finish) }
-            else { activate(target, deadline: start + 2, completion: finish) }
+            activate(target, deadline: start + 2, completion: finish)
         }
         else { finish(true) }
     }
 
     func activate(_ target: String, deadline: Double, completion: @escaping (Bool) -> Void) {
-        transitionStage = "settle_source"
         guard target == "com.apple.inputmethod.Korean.2SetKorean", currentID() != target else {
             settle(target, deadline: deadline, stableSince: nil, completion: completion)
             return
         }
-        transitionStage = "read_previous_source_shortcut"
-        guard let shortcut = PreviousSourceShortcut.configured() else { completion(false); return }
-        transitionStage = "prepare_korean_source"
-        guard select(target) else {
+        guard let shortcut = PreviousSourceShortcut.configured(), select(target) else {
             completion(false); return
         }
         // Establish the desired source as the previous source, then let the
         // system perform the final activation inside the focused app.
         settle(target, deadline: deadline, stableSince: nil) { ok in
-            guard ok else { completion(false); return }
-            self.transitionStage = "prepare_english_source"
-            guard select(self.english) else { completion(false); return }
+            guard ok, select(self.english) else { completion(false); return }
             self.settle(self.english, deadline: deadline, stableSince: nil) { ok in
-                guard ok else { completion(false); return }
-                self.transitionStage = "post_previous_source_shortcut"
-                guard shortcut.post() else { completion(false); return }
-                self.transitionStage = "wait_native_korean_activation"
+                guard ok, shortcut.post() else { completion(false); return }
                 self.nativeActivations += 1
                 self.waitForNativeActivation(target, deadline: deadline, completion: completion)
             }
@@ -321,6 +290,8 @@ final class KeyboardHook {
             return hook.receive(type, event)
         }, userInfo: Unmanaged.passUnretained(self).toOpaque())
         guard let tap else {
+            // Ask from the daemon itself, rather than inheriting the terminal's trust.
+            _ = CGRequestPostEventAccess()
             throw NSError(domain: "ShiftEnglish", code: 4,
                           userInfo: [NSLocalizedDescriptionKey: "Keyboard event tap is unavailable; Accessibility permission is required"])
         }
@@ -377,7 +348,6 @@ final class KeyboardHook {
         }
         if type == .keyDown,
            (rightHeld || controller.baselineOwned),
-           controller.recoveryAllowed,
            currentID() != (rightHeld ? controller.english : controller.baseline) {
             queue.append(.command("repair"))
             if let copy = event.copy() { queue.append(.event(copy)) }
@@ -399,7 +369,6 @@ final class KeyboardHook {
         // a TIS change, and rightHeld already reflects later queued modifiers.
         if case .event(let event) = queue[0], event.type == .keyDown,
            controller.baselineOwned,
-           controller.recoveryAllowed,
            currentID() != (controller.held ? controller.english : controller.baseline) {
             controller.receive(["command": "repair"]) { _ in
                 self.pumping = false; self.pump()
@@ -420,75 +389,15 @@ final class KeyboardHook {
             let elapsed = ProcessInfo.processInfo.systemUptime - deliveredAt
             let delay = command == "end" ? max(0, 0.015 - elapsed) : 0
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                self.controller.receive(["command": command]) { _ in
+                self.controller.receive(["command": command]) { result in
+                    if !(result["ok"] as? Bool ?? false) {
+                        fputs("ShiftEnglish: input-source transition failed; restoration remains pending\n", stderr)
+                    }
                     self.pumping = false; self.pump()
                 }
             }
         }
     }
-}
-
-func recoverySelfTest() throws {
-    let controller = try Controller()
-    // Preserve any real pending restore; the test's injected failures never select sources.
-    let pending = controller.original
-    var clock = 100.0
-    controller.recoveryClock = { clock }
-    controller.baseline = currentID() == controller.english
-        ? "com.apple.inputmethod.Korean.2SetKorean" : controller.english
-    controller.baselineOwned = true
-    controller.original = nil
-    controller.activationOverride = { _, _, done in done(false) }
-    controller.receive(["command": "repair"]) { _ in }
-    for _ in 0..<100 { controller.reconcile() }
-    var failures = 0
-    if controller.errors != 1 {
-        print("FAIL: failed activation was retried immediately: \(controller.errors) attempts")
-        failures += 1
-    }
-    let hook = KeyboardHook(controller)
-    var delivered = 0
-    hook.deliver = { _ in delivered += 1 }
-    let key = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true)!
-    key.flags = []
-    hook.queue.append(.event(key))
-    hook.pump()
-    RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-    if delivered != 1 || !hook.queue.isEmpty || controller.errors != 1 {
-        print("FAIL: input remained blocked by a failed repair")
-        failures += 1
-    }
-    clock += 1.0
-    controller.reconcile()
-    if controller.errors != 2 { print("FAIL: recovery did not resume after cooldown"); failures += 1 }
-    for _ in 0..<100 { controller.reconcile() }
-    if controller.errors != 2 { print("FAIL: second cooldown was ignored"); failures += 1 }
-    // A barrier must neither select a source nor clear the cooldown.
-    controller.receive(["command": "barrier"]) { _ in }
-    controller.reconcile()
-    if controller.errors != 2 { print("FAIL: status polling cleared cooldown"); failures += 1 }
-    clock += 2.0
-    for expectedDelay in [4.0, 8.0, 16.0, 30.0, 30.0] {
-        controller.reconcile()
-        if controller.retryAfter - clock != expectedDelay {
-            print("FAIL: incorrect bounded retry interval"); failures += 1
-        }
-        clock = controller.retryAfter
-    }
-    controller.baseline = currentID()
-    controller.activationOverride = { _, _, done in done(true) }
-    controller.receive(["command": "repair"]) { _ in }
-    if controller.consecutiveFailures != 0 || !controller.recoveryAllowed {
-        print("FAIL: successful activation did not clear backoff"); failures += 1
-    }
-    controller.original = pending
-    print("Recovery regression: \(failures) failures")
-    if failures != 0 { exit(1) }
-}
-
-if CommandLine.arguments.contains("--self-test-recovery") {
-    do { try recoverySelfTest(); exit(0) }
-    catch { fputs("Recovery self-test: \(error)\n", stderr); exit(1) }
 }
 
 func keyboardSelfTest() throws {

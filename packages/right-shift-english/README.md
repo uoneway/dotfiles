@@ -6,6 +6,9 @@ runs independently of Karabiner; Karabiner may map Caps Lock to F18.
 
 ## 1.0.4: shorter waits, safe completion handling, and diagnostic context
 
+This release also retains the PostEvent permission helper from the published
+1.0.2 release and the installer startup verification described below.
+
 Each transition now has a 300 ms deadline, rather than two seconds. When a new
 Shift/language action arrives after the active transition has already waited
 100 ms, its remaining wait is capped at 25 ms. Earlier queued text retains its
@@ -46,23 +49,34 @@ a new attempt. A successful transition enables normal drift checks again.
 The initial attempt still has its existing two-second timeout. Starting a new
 process may make one startup restore attempt from the saved journal.
 
-## 1.0.2: bounded recovery after failed transitions
+## 1.0.2: request Accessibility permission during installation
 
-A failed source transition previously triggered repeated background repairs with
-no cooldown. A queued key could also retry the same failed repair indefinitely.
-Failures now delay automatic repairs by 1, 2, 4, 8, 16, then at most 30 seconds.
-A successful source activation resets the delay. Explicit Shift/F18 commands
-still attempt the requested transition immediately.
+When permission is missing, the installer requests the macOS Accessibility
+prompt and reports that approval is required before use. Approve the app in
+System Settings, then run `dotfiles install right-shift-english` to start it.
+The app checks and requests Core Graphics PostEvent access, which is required
+for its filtering keyboard event tap and synthetic input-source shortcut events.
+An Accessibility check alone can disagree with this permission on macOS 27.
+The installer opens the app separately to request permission and confirms the
+LaunchAgent is running before reporting success. An already-running daemon takes
+precedence over a terminal-launched permission check.
 
-During cooldown, keyboard events pass through using the current input source;
-the pending restore remains available for later recovery. The first transition
-attempt still buffers input until it succeeds or reaches its two-second timeout.
-This avoids indefinitely holding keys when native switching is unavailable.
+The system controls whether it displays the prompt again. Silent permission
+checks remain available through `--check-permission`.
 
-Each failure logs its UTC time, command, stage, target/current source, and retry
-interval. Socket replies expose `last_error`, `consecutive_failures`, and
-`retry_in_seconds`; the `barrier` command observes state without selecting sources.
-Historical counters do not identify the cause of earlier failures.
+If the System Settings toggle is enabled but the daemon exits, inspect
+`~/.local/share/karabiner-shift-english/daemon-error.log` and the macOS TCC log.
+When TCC specifically reports a denied PostEvent record despite the enabled
+toggle, reset only this app's PostEvent approval, preserving its Accessibility
+approval, then restart the app:
+
+```sh
+tccutil reset PostEvent local.karabiner.shift-english
+dotfiles install right-shift-english
+```
+
+This is a recovery step for a confirmed permission mismatch, not an automatic
+part of installation. Approve any permission request shown by macOS.
 
 ## 1.0.1: activate Korean in the focused app
 
