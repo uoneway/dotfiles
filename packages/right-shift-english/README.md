@@ -4,6 +4,33 @@ Hold right Shift for temporary uppercase English; release it to restore the
 baseline input source. F18 toggles the baseline between ABC and Korean. The app
 runs independently of Karabiner; Karabiner may map Caps Lock to F18.
 
+## 1.0.4: shorter waits, safe completion handling, and diagnostic context
+
+Each transition now has a 300 ms deadline, rather than two seconds. When a new
+Shift/language action arrives after the active transition has already waited
+100 ms, its remaining wait is capped at 25 ms. Earlier queued text retains its
+order; normal rapid Shift sequences are not interrupted. A stalled attempt ends
+before the newer command is processed, and completed requests cannot run stale
+completion handlers or source-selection polling callbacks.
+
+Failed attempts still stop automatic recovery. Superseded attempts are recorded
+separately from failures. A native shortcut already posted to macOS cannot be
+withdrawn; a source change while recovery is paused is logged without retrying.
+This bounds app-controlled waiting but does not guarantee a target app's IME
+composition or eliminate OS-side late activation.
+
+Abnormal-transition logs contain UTC time, request ID, command, result/reason,
+stage timings, elapsed time, deadline, initial/target/current sources, source
+changes, the configured switching shortcut, baseline/Shift state, queued event
+and command counts and buffer age, initial/current app bundle IDs, source-selection
+OS status codes, permission checks, app/OS versions, and up to eight recent
+transition summaries. Duplicate late completions are ignored and logged once.
+Successful transitions remain in the bounded in-memory history and are included
+only when a later abnormal transition needs context. Input text, ordinary key
+codes, Unicode payloads, window titles, and document contents are not logged.
+The launch agent writes diagnostics to
+`~/.local/share/karabiner-shift-english/daemon-error.log`.
+
 ## 1.0.3: stop automatic recovery after a failure
 
 A failed transition logs its diagnostic details and disables automatic source
@@ -63,15 +90,19 @@ Build and run the keyboard pipeline regression checks when the regular daemon
 is stopped and the keyboard is not in use:
 
 ```sh
-swiftc -O packages/right-shift-english/1.0.3/ShiftEnglish.swift -o /tmp/right-shift-english-test
+swiftc -O packages/right-shift-english/1.0.4/ShiftEnglish.swift -o /tmp/right-shift-english-test
+/tmp/right-shift-english-test --self-test-interruption
 /tmp/right-shift-english-test --self-test-recovery
 /tmp/right-shift-english-test --self-test-keyboard
 ```
 
+The interruption regression injects stalled transitions and checks newer language
+actions, bounded waits, obsolete completions, and diagnostic metadata.
 The recovery regression injects failures without changing the system input source
 and checks that failed restores retain their journal, automatic retries stop,
-ordinary typing and status queries do not retry, and explicit retries can recover. The keyboard pipeline checks exercise queued events, both Shifts,
-lost releases, other modifiers, F18 during Shift, and late input-source changes. They verify source selection at
+ordinary typing and status queries do not retry, and explicit retries can recover.
+The keyboard pipeline checks exercise queued events, both Shifts, lost releases,
+other modifiers, F18 during Shift, and late input-source changes. They verify source selection at
 event delivery, including native CJK activation, but do not assert what a target
 app actually inserts.
 
