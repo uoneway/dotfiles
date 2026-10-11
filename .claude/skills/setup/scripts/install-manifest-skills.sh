@@ -60,6 +60,29 @@ verify_entry() {
   return "$missing"
 }
 
+# manifest 목록에서 빠진 스킬을 지운다. npx skills add는 추가·갱신만 하므로, upstream에서
+# 삭제되거나 이름이 바뀐 스킬이 머신마다 남는다. 같은 source로 설치된 것만 대상이며,
+# 잠금 파일(~/.agents/.skill-lock.json)로 source를 확인한다. python3가 없으면 건너뛴다.
+prune_entry() {
+  local alias="$1" src="$2" skills="$3" lock="$HOME/.agents/.skill-lock.json" stale s
+  [ -n "$skills" ] && [ -f "$lock" ] && command -v python3 >/dev/null 2>&1 || return 0
+  stale="$(python3 -I - "$lock" "$src" "$skills" <<'PY'
+import json, sys
+lock, src, keep = sys.argv[1], sys.argv[2], set(sys.argv[3].split(","))
+for name, meta in json.load(open(lock)).get("skills", {}).items():
+    if meta.get("source") == src and name not in keep:
+        print(name)
+PY
+)" || return 0
+  for s in $stale; do
+    echo "  [prune] $alias: '$s' is no longer in the manifest"
+    npx -y skills remove -g -s "$s" -y </dev/null >/dev/null 2>&1 || true
+    if [ -e "$HOME/.agents/skills/$s" ]; then
+      echo "  [warn] $alias: could not remove '$s'"
+    fi
+  done
+}
+
 # manifest에서 (별칭|source|skills|agents) 추출
 awk '
 function emit() { if (src != "") print alias "|" src "|" skills "|" agents }
@@ -105,6 +128,7 @@ while IFS='|' read -r alias src skills agents; do
     echo "  [ok] $alias installed/updated"
     # 설치가 성공했다고 해서 원하는 곳에 깔렸다는 뜻은 아니다 — 경로를 직접 본다.
     verify_entry "$alias" "$skills" "$agents" || CONFIG_ERRORS=$((CONFIG_ERRORS + 1))
+    prune_entry "$alias" "$src" "$skills"
   else
     echo "  [fail] $alias — install failed (offline?), continuing"
     FAILED=$((FAILED + 1))
