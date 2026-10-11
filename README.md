@@ -75,6 +75,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | `rules/` (실행 정책) | ✅ | 심링크 |
 | `~/.agents/skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용). Codex의 user-level 스킬 경로이며, 예전 `~/.codex/skills`에 남은 config 스킬은 apply가 정리 |
 | `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신. 자작 스킬 심링크와 같은 디렉토리에 공존 |
+| 내장 스킬 끄기 | ✅ | `config/ai/codex/disabled-system-skills`에 적은 이름을 `config.toml`의 `[[skills.config]] enabled = false`로 보장 (경로가 머신마다 달라 base 병합 대신 apply가 추가) |
 | `prompts/` (커스텀 프롬프트) | ✅* | config에 두면 자동 링크 (현재 미사용) |
 | `config.toml` 중 `[projects]` (신뢰 목록) | ❌ | 머신별 상태 — 머신마다 존재하는 프로젝트가 다름 |
 | `config.toml` 중 `[mcp_servers]` | ❌ | 명령 경로가 머신 의존 (npx 기반 서버라면 base에 올려 동기화 가능) |

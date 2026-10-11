@@ -94,7 +94,8 @@ FNR == NR {
 }
 # 2-pass: target 파일 — base 키만 교체, 나머지 통과
 {
-  if ($0 ~ /^\[[^]]+\][ \t]*$/) {
+  # [[array.of.tables]]도 섹션 경계로 본다. 그렇지 않으면 base에만 있는 키가 배열 테이블 안에 추가된다.
+  if ($0 ~ /^\[\[?[^]]+\]\]?[ \t]*$/) {
     flush_sec(cursec)                      # 섹션을 떠나기 전, base에만 있는 키를 섹션 끝에 추가
     while (nblank > 0) { print ""; nblank-- }
     cursec = $0; sub(/^\[/, "", cursec); sub(/\][ \t]*$/, "", cursec)
