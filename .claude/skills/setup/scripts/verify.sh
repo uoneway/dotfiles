@@ -129,6 +129,27 @@ check_skill_links() {
   echo "  [ok] skills: $ok/$total linked in $dst"
 }
 
+# 예전 배포 위치에 config 스킬이 남아 있으면 도구가 같은 스킬을 두 번 노출한다.
+check_no_legacy_skills() {
+  local legacy="$1"; shift
+  local src skill name found=0
+  for src in "$@"; do
+    [ -d "$src" ] || continue
+    for skill in "$src"/*/; do
+      skill="${skill%/}"
+      [ -f "$skill/SKILL.md" ] || continue
+      name="$(basename "$skill")"
+      if [ -e "$legacy/$name" ] || [ -L "$legacy/$name" ]; then
+        echo "  [fail] legacy skill copy remains: $legacy/$name"
+        ERRORS=$((ERRORS + 1))
+        found=1
+      fi
+    done
+  done
+  [ "$found" -eq 0 ] && echo "  [ok] no legacy skills in $legacy"
+  return 0
+}
+
 # Detect shell — zsh가 설치돼 있으면 zsh 기준 (apply와 동일 규칙)
 if command -v zsh >/dev/null 2>&1; then
   USER_SHELL="zsh"
@@ -169,7 +190,8 @@ if echo "$TOOLS" | grep -q "codex"; then
     check_instructions "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" codex
   fi
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
-  check_skill_links "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+  check_skill_links "$HOME/.agents/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+  check_no_legacy_skills "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
   echo ""
 fi
 

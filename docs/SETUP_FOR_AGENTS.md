@@ -49,7 +49,7 @@ source ~/.zshrc                                          # 7. apply
 | `~/AGENTS.md`, `~/.codex/AGENTS.md` | symlink → `config/ai/AGENTS.md` (unified mode) |
 | `~/.claude/settings.json` | **merge** — keys in `config/ai/claude/settings.base.json` win, machine-local keys (hooks, additionalDirectories) preserved |
 | `~/.codex/config.toml` | **merge** — keys in `config/ai/codex/config.base.toml` win, machine state (`[projects]`, `[hooks.state]`, plugins…) preserved |
-| `~/.claude/skills/`, `~/.codex/skills/` | real dir + per-skill symlinks (shared `config/ai/skills/` + tool-specific) |
+| `~/.claude/skills/` (Claude), `~/.agents/skills/` (Codex) | real dir + per-skill symlinks (shared `config/ai/skills/` + tool-specific); `~/.agents/skills/` also holds third-party skills from `npx skills` |
 | `~/.agents/skills/` | third-party skills installed by `npx skills` from `config/ai/skills-manifest.toml` |
 | `~/.zshrc`, `~/.zshrc.d/{macos,linux}.zsh` | symlinks; `~/.zshrc.d/local.zsh` & `secrets.zsh` are real local files (never synced) |
 
