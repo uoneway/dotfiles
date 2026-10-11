@@ -73,8 +73,8 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | `~/.codex/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. 머신별 추가 파일을 선택하면 Claude와 같은 합성 결과에 링크 |
 | `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, commit_attribution, `[tui]`, `[features]`, network_access | ✅ | **병합** — `config.base.toml`의 키만 교체 |
 | `rules/` (실행 정책) | ✅ | 심링크 |
-| `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용) |
-| `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신 |
+| `~/.agents/skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용). Codex의 user-level 스킬 경로이며, 예전 `~/.codex/skills`에 남은 config 스킬은 apply가 정리 |
+| `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신. 자작 스킬 심링크와 같은 디렉토리에 공존 |
 | `prompts/` (커스텀 프롬프트) | ✅* | config에 두면 자동 링크 (현재 미사용) |
 | `config.toml` 중 `[projects]` (신뢰 목록) | ❌ | 머신별 상태 — 머신마다 존재하는 프로젝트가 다름 |
 | `config.toml` 중 `[mcp_servers]` | ❌ | 명령 경로가 머신 의존 (npx 기반 서버라면 base에 올려 동기화 가능) |

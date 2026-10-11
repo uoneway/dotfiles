@@ -154,7 +154,8 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "codex" ]; then
   unlink_merged "$HOME/.codex/config.toml" "config.toml"
   unlink_file "$HOME/.codex/AGENTS.md" "AGENTS.md" "$CONFIG/ai/AGENTS.md"
   unlink_dir  "$HOME/.codex/rules" "rules/" "$CONFIG/ai/codex/rules"
-  unlink_skills "$HOME/.codex/skills" "skills/"
+  unlink_skills "$HOME/.agents/skills" "agents skills/"
+  unlink_skills "$HOME/.codex/skills" "legacy skills/"
   echo ""
 fi
 
