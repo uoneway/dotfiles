@@ -192,6 +192,18 @@ if echo "$TOOLS" | grep -q "codex"; then
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
   check_skill_links "$HOME/.agents/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
   check_no_legacy_skills "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+  if [ -f "$CONFIG/ai/codex/disabled-system-skills" ]; then
+    while IFS= read -r name; do
+      name="${name%%#*}"; name="$(echo "$name" | tr -d '[:space:]')"
+      [ -n "$name" ] || continue
+      if grep -Fq "path = \"$HOME/.codex/skills/.system/$name/SKILL.md\"" "$HOME/.codex/config.toml" 2>/dev/null; then
+        echo "  [ok] system skill disabled: $name"
+      else
+        echo "  [fail] system skill not disabled: $name (run link-tool.sh codex)"
+        ERRORS=$((ERRORS + 1))
+      fi
+    done < "$CONFIG/ai/codex/disabled-system-skills"
+  fi
   echo ""
 fi
 
