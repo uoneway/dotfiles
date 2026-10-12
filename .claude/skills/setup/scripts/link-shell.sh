@@ -36,6 +36,13 @@ if [ "$SHELL_TYPE" = "zsh" ]; then
         [ -f "$f" ] && backup_and_link "$f" "$HOME/.zshrc.d/$(basename "$f")"
       done
     fi
+    # Ghostty 설정 (macOS 전용). config가 `config-file = herdr.conf`로 Herdr key table을 참조한다.
+    if [ "$(uname -s)" = "Darwin" ] && [ -f "$CONFIG/shell/ghostty-config" ]; then
+      backup_and_link "$CONFIG/shell/ghostty-config" "$HOME/.config/ghostty/config"
+    fi
+    if [ "$(uname -s)" = "Darwin" ] && [ -f "$CONFIG/shell/ghostty-herdr.conf" ]; then
+      backup_and_link "$CONFIG/shell/ghostty-herdr.conf" "$HOME/.config/ghostty/herdr.conf"
+    fi
     # 머신별 추가 셸 설정은 machines.toml에서 선택한다. OS 파일은 zshrc가 자동 선택한다.
     local_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || exit 1
     addition_link="$HOME/.zshrc.d/machine-addition.zsh"
