@@ -144,6 +144,8 @@ class TerminalConfigTest(unittest.TestCase):
         local = self.home / ".zshrc.d/local.zsh"
         local.parent.mkdir()
         local.write_text("export MACHINE_ONLY=yes\n")
+        obsolete = local.with_name("aliases.zsh")
+        obsolete.symlink_to(zsh / "zshrc.d/aliases.zsh")
         secrets = local.with_name("secrets.zsh")
         secrets.write_text("# private machine settings\n")
         (self.ghostty / "config").write_text("theme = machine\n")
@@ -160,6 +162,7 @@ class TerminalConfigTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual((self.home / ".zshrc").resolve(), (zsh / "zshrc").resolve())
         self.assertEqual(local.read_text(), "export MACHINE_ONLY=yes\n")
+        self.assertFalse(obsolete.is_symlink())
         self.assertEqual(secrets.read_text(), "# private machine settings\n")
         self.assertTrue((self.home / ".local/state/dotfiles/applied").is_file())
         self.assertFalse(bashrc.is_symlink())
@@ -178,9 +181,7 @@ class TerminalConfigTest(unittest.TestCase):
     def test_override_warnings_are_read_only_and_hide_values(self):
         shared = self.root / "config/terminal/zsh"
         shared.mkdir(parents=True)
-        (shared / "zshrc").write_text("export PATH=shared\nhelper() { :; }\n")
-        (shared / "zshrc.d").mkdir()
-        (shared / "zshrc.d/aliases.zsh").write_text("alias gc=shared\n")
+        (shared / "zshrc").write_text("export PATH=shared\nalias gc=shared\nhelper() { :; }\n")
         local = self.home / ".zshrc.d/local.zsh"
         local.parent.mkdir()
         sentinel = self.home / "must-not-execute"

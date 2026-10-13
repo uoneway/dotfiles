@@ -44,6 +44,12 @@ if [ -f "$CONFIG/terminal/zsh/zshrc" ]; then
       [ -f "$f" ] && backup_and_link "$f" "$HOME/.zshrc.d/$(basename "$f")"
     done
   fi
+  # 이전 alias 파일의 관리 심링크만 정리한다. 로컬 실파일은 유지한다.
+  if [ -L "$HOME/.zshrc.d/aliases.zsh" ]; then
+    case "$(readlink "$HOME/.zshrc.d/aliases.zsh")" in
+      "$CONFIG/terminal/zsh/zshrc.d/aliases.zsh") rm "$HOME/.zshrc.d/aliases.zsh" ;;
+    esac
+  fi
   # 머신별 추가 셸 설정은 machines.toml에서 선택한다. OS 파일은 zshrc가 자동 선택한다.
   local_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || exit 1
   addition_link="$HOME/.zshrc.d/machine-addition.zsh"

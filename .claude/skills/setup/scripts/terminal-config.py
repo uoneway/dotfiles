@@ -150,7 +150,6 @@ class TerminalConfig:
         shared = self.config / "terminal/zsh"
         os_file = "macos.zsh" if sys.platform == "darwin" else "linux.zsh"
         sources = (shared / "zshrc", shared / "zshrc.d" / os_file,
-                   shared / "zshrc.d/aliases.zsh",
                    self.home / ".zshrc.d/machine-addition.zsh")
         names = {(kind, name) for source in sources for kind, name, _ in shell_names(source)}
         local = self.home / ".zshrc.d/local.zsh"

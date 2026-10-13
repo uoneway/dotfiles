@@ -47,7 +47,30 @@ export PATH="$HOME/.local/bin:$PATH"
 # command -v nvim >/dev/null 2>&1 && export EDITOR="nvim"
 # [[ -d "$HOME/.npm-global/bin" ]] && export PATH="$HOME/.npm-global/bin:$PATH"
 
-[[ -f ~/.zshrc.d/aliases.zsh ]] && source ~/.zshrc.d/aliases.zsh
+# ============================================================
+# Aliases
+# ============================================================
+alias ..='cd ..'
+alias ...='cd ../..'
+alias cl='clear'
+alias h='history | tail -10'
+alias reload='source ~/.zshrc'
+
+# Git
+alias gs='git status'
+alias gc='git commit -m'
+alias gp='git push'
+alias gpl='git pull'
+alias gco='git checkout'
+alias gb='git branch'
+alias gl='git log --oneline --graph --decorate'
+alias gd='git diff'
+
+# AI tools (uncomment as needed)
+# alias cc="claude"
+# alias cx="codex"
+
+# dotfiles: shared aliases end
 
 # ============================================================
 # 머신별 추가 설정 (config/machines.toml에서 선택, config/terminal/zsh/additions/에 보관)
