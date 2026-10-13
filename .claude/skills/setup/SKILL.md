@@ -198,6 +198,8 @@ bash .claude/skills/setup/scripts/install-manifest-skills.sh
 
 ## Step 5: 셸 셋업
 
+배포할 셸 설정은 zsh 전용이다. zsh가 없으면 먼저 설치한다. 기존 Bash 설정은 마이그레이션 분석에만 사용하고 머신 로컬로 유지한다. 로그인 셸을 바꿀 수 없는 서버는 `link-shell.sh`가 인터랙티브 Bash에서 zsh로 전환하는 블록을 추가한다.
+
 ### 5-1. 기존 셸 설정 분석
 
 사용자의 현재 셸 설정 파일(`~/.zshrc` 또는 `~/.bashrc`)을 읽고, 내용을 항목별로 분석한다.
@@ -302,7 +304,7 @@ config/terminal/zsh/
 ### 5-5. 심링크 생성
 
 ```bash
-bash .claude/skills/setup/scripts/link-shell.sh <zsh|bash>
+bash .claude/skills/setup/scripts/link-shell.sh zsh
 python3 .claude/skills/setup/scripts/terminal-config.py apply
 ```
 
@@ -354,7 +356,7 @@ Setup 완료! dotfiles가 성공적으로 설정되었습니다.
 ### 셸 적용
 
 ```bash
-source ~/.zshrc   # 또는 source ~/.bashrc
+source ~/.zshrc
 ```
 
 ### 멀티 머신 배포 제안

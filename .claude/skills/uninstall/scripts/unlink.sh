@@ -126,13 +126,6 @@ unlink_skills() {
   fi
 }
 
-# Detect shell
-case "$SHELL" in
-  */zsh)  USER_SHELL="zsh" ;;
-  */bash) USER_SHELL="bash" ;;
-  *)      USER_SHELL="zsh" ;;
-esac
-
 echo "=== UNINSTALL (mode: $MODE) ==="
 echo ""
 
@@ -173,21 +166,12 @@ fi
 
 # Shell (AI 이후 제거)
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "shell" ] || [ "$TARGET" = "terminal" ]; then
-  echo "--- shell ($USER_SHELL) ---"
-  if [ "$USER_SHELL" = "zsh" ]; then
-    unlink_file "$HOME/.zshrc" "zshrc" "$CONFIG/terminal/zsh/zshrc"
-    if [ -d "$HOME/.zshrc.d" ]; then
-      for f in "$HOME/.zshrc.d"/*.zsh; do
-        [ -L "$f" ] && unlink_file "$f" "zshrc.d/$(basename "$f")" "$CONFIG/terminal/zsh/zshrc.d/$(basename "$f")"
-      done
-    fi
-  else
-    unlink_file "$HOME/.bashrc" "bashrc" "$CONFIG/terminal/bash/bashrc"
-    if [ -d "$HOME/.bashrc.d" ]; then
-      for f in "$HOME/.bashrc.d"/*.bash; do
-        [ -L "$f" ] && unlink_file "$f" "bashrc.d/$(basename "$f")" "$CONFIG/terminal/bash/bashrc.d/$(basename "$f")"
-      done
-    fi
+  echo "--- shell (zsh) ---"
+  unlink_file "$HOME/.zshrc" "zshrc" "$CONFIG/terminal/zsh/zshrc"
+  if [ -d "$HOME/.zshrc.d" ]; then
+    for f in "$HOME/.zshrc.d"/*.zsh; do
+      [ -L "$f" ] && unlink_file "$f" "zshrc.d/$(basename "$f")" "$CONFIG/terminal/zsh/zshrc.d/$(basename "$f")"
+    done
   fi
   echo ""
 fi

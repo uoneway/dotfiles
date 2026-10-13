@@ -150,16 +150,6 @@ check_no_legacy_skills() {
   return 0
 }
 
-# Detect shell — zsh가 설치돼 있으면 zsh 기준 (apply와 동일 규칙)
-if command -v zsh >/dev/null 2>&1; then
-  USER_SHELL="zsh"
-else
-  case "$SHELL" in
-    */bash) USER_SHELL="bash" ;;
-    *)      USER_SHELL="zsh" ;;
-  esac
-fi
-
 echo "=== VERIFY (mode: ${MODE#--}, tools: ${TOOLS:-none}) ==="
 echo ""
 
@@ -219,33 +209,28 @@ if echo "$TOOLS" | grep -q "gemini"; then
 fi
 
 # Shell
-echo "--- shell ($USER_SHELL) ---"
-if [ "$USER_SHELL" = "zsh" ]; then
-  check_link "$HOME/.zshrc" "$CONFIG/terminal/zsh/zshrc" "zshrc"
-  if [ -d "$CONFIG/terminal/zsh/zshrc.d" ]; then
-    for f in "$CONFIG/terminal/zsh/zshrc.d"/*.zsh; do
-      [ -f "$f" ] && check_link "$HOME/.zshrc.d/$(basename "$f")" "$f" "zshrc.d/$(basename "$f")"
-    done
-  fi
-  zsh_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || { echo "  [fail] machine selection invalid"; ERRORS=$((ERRORS + 1)); zsh_addition=""; }
-  if [ -n "$zsh_addition" ]; then
-    check_file_exists "$CONFIG/terminal/zsh/additions/$zsh_addition" "selected zsh addition"
-    if [ ! -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
-      echo "  [fail] machine-addition.zsh is not linked"
-      ERRORS=$((ERRORS + 1))
-    fi
-    check_link "$HOME/.zshrc.d/machine-addition.zsh" "$CONFIG/terminal/zsh/additions/$zsh_addition" "machine-addition.zsh"
-  elif [ -e "$HOME/.zshrc.d/machine-addition.zsh" ] || [ -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
-    echo "  [fail] machine-addition.zsh exists but no zsh_addition is selected"
+echo "--- shell (zsh) ---"
+if ! command -v zsh >/dev/null 2>&1; then
+  echo "  [fail] zsh is not installed"
+  ERRORS=$((ERRORS + 1))
+fi
+check_link "$HOME/.zshrc" "$CONFIG/terminal/zsh/zshrc" "zshrc"
+if [ -d "$CONFIG/terminal/zsh/zshrc.d" ]; then
+  for f in "$CONFIG/terminal/zsh/zshrc.d"/*.zsh; do
+    [ -f "$f" ] && check_link "$HOME/.zshrc.d/$(basename "$f")" "$f" "zshrc.d/$(basename "$f")"
+  done
+fi
+zsh_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || { echo "  [fail] machine selection invalid"; ERRORS=$((ERRORS + 1)); zsh_addition=""; }
+if [ -n "$zsh_addition" ]; then
+  check_file_exists "$CONFIG/terminal/zsh/additions/$zsh_addition" "selected zsh addition"
+  if [ ! -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
+    echo "  [fail] machine-addition.zsh is not linked"
     ERRORS=$((ERRORS + 1))
   fi
-else
-  check_link "$HOME/.bashrc" "$CONFIG/terminal/bash/bashrc" "bashrc"
-  if [ -d "$CONFIG/terminal/bash/bashrc.d" ]; then
-    for f in "$CONFIG/terminal/bash/bashrc.d"/*.bash; do
-      [ -f "$f" ] && check_link "$HOME/.bashrc.d/$(basename "$f")" "$f" "bashrc.d/$(basename "$f")"
-    done
-  fi
+  check_link "$HOME/.zshrc.d/machine-addition.zsh" "$CONFIG/terminal/zsh/additions/$zsh_addition" "machine-addition.zsh"
+elif [ -e "$HOME/.zshrc.d/machine-addition.zsh" ] || [ -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
+  echo "  [fail] machine-addition.zsh exists but no zsh_addition is selected"
+  ERRORS=$((ERRORS + 1))
 fi
 echo ""
 

@@ -1,5 +1,7 @@
 """Exercise real terminal migration and merge scripts against existing state."""
 
+import contextlib
+import io
 import importlib.util
 import os
 from pathlib import Path
@@ -150,7 +152,9 @@ class TerminalConfigTest(unittest.TestCase):
         binary.write_text("#!/bin/zsh\nexit 0\n")
         binary.chmod(0o755)
         env = os.environ.copy()
-        env.update(HOME=str(self.home), XDG_CONFIG_HOME=str(self.xdg), SHELL="/bin/zsh")
+        env.update(HOME=str(self.home), XDG_CONFIG_HOME=str(self.xdg), SHELL="/bin/bash")
+        bashrc = self.home / ".bashrc"
+        bashrc.write_text("export MACHINE_BASH_SETTING=yes\n")
         result = subprocess.run(["bash", str(cli), "apply", "terminal", "--skip-install"],
                                 env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -158,6 +162,44 @@ class TerminalConfigTest(unittest.TestCase):
         self.assertEqual(local.read_text(), "export MACHINE_ONLY=yes\n")
         self.assertEqual(secrets.read_text(), "# private machine settings\n")
         self.assertTrue((self.home / ".local/state/dotfiles/applied").is_file())
+        self.assertFalse(bashrc.is_symlink())
+        self.assertTrue(bashrc.read_text().startswith("export MACHINE_BASH_SETTING=yes\n"))
+        first = bashrc.read_text()
+        result = subprocess.run(["bash", str(scripts / "link-shell.sh"), "zsh"], env=env,
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(first, bashrc.read_text())
+        result = subprocess.run(["bash", "-c", 'source "$HOME/.bashrc"; '
+                                 'test "$MACHINE_BASH_SETTING" = yes && test -z "$ZSH_VERSION"'],
+                                env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+
+    def test_override_warnings_are_read_only_and_hide_values(self):
+        shared = self.root / "config/terminal/zsh"
+        shared.mkdir(parents=True)
+        (shared / "zshrc").write_text("export PATH=shared\nalias gc=shared\nhelper() { :; }\n")
+        local = self.home / ".zshrc.d/local.zsh"
+        local.parent.mkdir()
+        sentinel = self.home / "must-not-execute"
+        local.write_text(f"export PATH=private-value\nalias gc='private-command'\n"
+                         f"helper() {{ :; }}\ntouch '{sentinel}'\nexport UNIQUE=secret-value\n")
+        local.with_name("secrets.zsh").write_text("export PATH=secret-value\n")
+        (self.source / "common.conf").write_text("font-size = 12\nkeybind = super+t=new_tab\n")
+        (self.ghostty / "local.conf").write_text(
+            "font-size = 18\nkeybind = super+t=text:private-command\n"
+            "keybind = super+n=new_window\ntheme = private-value\n")
+        before = self.snapshot(self.root)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.manager.warn_overrides()
+        warning = output.getvalue()
+        for name in ("PATH", "gc", "helper", "font-size", "keybind[super+t]"):
+            self.assertIn(name, warning)
+        for value in ("private-value", "private-command", "secret-value", "secrets.zsh",
+                      "UNIQUE", "super+n", "theme"):
+            self.assertNotIn(value, warning)
+        self.assertEqual(before, self.snapshot(self.root))
 
     def merge(self, base, target, check=False):
         env = os.environ.copy()

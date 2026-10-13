@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -127,6 +128,56 @@ class TerminalConfig:
                     self.link(source, self.home / ".local/bin" / source.name, check)
         self.ghostty(check)
         self.herdr(check)
+        self.warn_overrides()
+
+    def warn_overrides(self):
+        """Report overlapping declarations without executing local code or printing values."""
+        def shell_names(path):
+            if not path.is_file():
+                return []
+            found = []
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if line.lstrip().startswith("#"):
+                    continue
+                alias = re.search(r"(?:^|&&|;)\s*alias\s+([A-Za-z0-9_.-]+)=", line)
+                function = re.match(r"\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_-]*)\s*\(\)\s*\{", line)
+                variable = re.search(r"(?:^|&&|;)\s*(?:export\s+|typeset\s+-g\s+)?([A-Za-z_][A-Za-z0-9_]*)=", line)
+                for kind, match in (("alias", alias), ("function", function), ("variable", variable)):
+                    if match:
+                        found.append((kind, match.group(1), number))
+            return found
+
+        shared = self.config / "terminal/zsh"
+        os_file = "macos.zsh" if sys.platform == "darwin" else "linux.zsh"
+        sources = (shared / "zshrc", shared / "zshrc.d" / os_file,
+                   self.home / ".zshrc.d/machine-addition.zsh")
+        names = {(kind, name) for source in sources for kind, name, _ in shell_names(source)}
+        local = self.home / ".zshrc.d/local.zsh"
+        for kind, name, number in shell_names(local):
+            if (kind, name) in names:
+                print(f"  [warn] local zsh {kind} overlaps shared settings: {name} ({local}:{number})")
+
+        def ghostty_names(path):
+            if not path.is_file():
+                return []
+            found = []
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
+                    continue
+                name, value = (part.strip() for part in line.split("=", 1))
+                if name == "keybind":
+                    name += "[" + value.split("=", 1)[0] + "]"
+                if name != "config-file":
+                    found.append((name, number))
+            return found
+
+        common = self.config / "terminal/ghostty/common.conf"
+        names = {name for name, _ in ghostty_names(common)}
+        for filename in ("local.pre-dotfiles.conf", "local.conf"):
+            local = self.xdg / "ghostty" / filename
+            for name, number in ghostty_names(local):
+                if name in names:
+                    print(f"  [warn] local Ghostty setting overlaps shared settings: {name} ({local}:{number})")
 
     def uninstall(self, mode):
         def unlink(target):

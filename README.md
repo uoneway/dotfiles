@@ -1,6 +1,6 @@
 # dotfiles
 
-AI 코딩 도구(Claude Code, Codex CLI)와 셸(zsh/bash) 설정을 한 곳에서 관리하고, 여러 머신에 배포합니다.
+AI 코딩 도구(Claude Code, Codex CLI)와 셸(zsh) 설정을 한 곳에서 관리하고, 여러 머신에 배포합니다.
 
 ## Why dotfiles
 
@@ -105,6 +105,12 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 
 Ghostty의 `config-file` 상대경로는 그 줄을 적은 설정 파일의 디렉터리를 기준으로 한다. 기본 설정에 `config-file = profiles/herdr.conf`를 넣으면 일반 창에도 Herdr용 키 매핑이 적용되므로, 전용 창만 사용할 때는 `hdr`가 프로파일을 전달하게 둔다.
 
+`apply`와 `verify`는 `local.zsh`에 공통과 같은 이름의 변수·alias·함수 선언이 있거나 Ghostty 로컬 파일에 공통과 같은 옵션이 있으면 경고한다. 경고는 적용을 막지 않으며 값은 출력하지 않는다. 정적으로 인식하는 선언만 검사하므로 동적 `eval`, 추가 `source` 파일, 간접 선언은 감지하지 못할 수 있다. `secrets.zsh`는 검사하지 않는다.
+
+Bash 설정은 배포하지 않는다. 서버의 기존 `~/.bashrc`는 머신 로컬로 유지하고, 로그인 셸을 바꿀 수 없는 환경에서는 인터랙티브 셸에서만 zsh로 전환하는 블록을 추가한다. 프레임워크 스크립트를 실행하는 Bash는 계속 필요하다. zsh가 없는 머신은 셸 설정을 적용하기 전에 zsh를 설치해야 한다.
+
+`aladd 이름 "명령"`은 `~/.zshrc.d/local.zsh`에 셸 문법에 맞게 인용한 alias를 저장하고 현재 셸에도 적용한다. 공통 zshrc는 수정하지 않으며, 로컬 대상이 심링크이면 기록을 거부한다. `al-edit`도 로컬 파일을 편집한다.
+
 Gemini CLI는 템플릿만 제공하며 기본 비활성입니다 (Antigravity 전환이 안정되면 재검토).
 
 ## 구조
@@ -142,7 +148,6 @@ dotfiles/                              # public: 프레임워크
 │   │       └── rules/
 │   ├── terminal/                     #   터미널 작업 환경
 │   │   ├── zsh/                      #   zshrc, zshrc.d/, additions/
-│   │   ├── bash/                     #   Bash 설정 (선택)
 │   │   ├── ghostty/                  #   common.conf, profiles/herdr.conf
 │   │   └── herdr/config.base.toml    #   공통 키만 라이브 config.toml에 병합
 │   └── bin/hdr                       #   → ~/.local/bin/hdr
