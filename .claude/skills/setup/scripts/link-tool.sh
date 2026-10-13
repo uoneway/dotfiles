@@ -151,6 +151,56 @@ link_skills() {
   echo "  [ok] skills: $n linked into $dst"
 }
 
+# 예전 배포 위치에 남은 config 스킬 정리. config가 관리하는 이름만 다루며,
+# 심링크는 지우고 실디렉토리(과거 복사본)는 backup/으로 옮긴다. 다른 항목은 건드리지 않는다.
+retire_skill_dir() {
+  local legacy="$1"; shift
+  [ -d "$legacy" ] || return 0
+  local src skill name entry rel_path
+  for src in "$@"; do
+    [ -d "$src" ] || continue
+    for skill in "$src"/*/; do
+      skill="${skill%/}"
+      [ -f "$skill/SKILL.md" ] || continue
+      name="$(basename "$skill")"
+      entry="$legacy/$name"
+      if [ -L "$entry" ]; then
+        rm "$entry"
+        echo "  [clean] legacy skill link removed: $entry"
+      elif [ -d "$entry" ]; then
+        rel_path="${entry#$HOME/}"
+        mkdir -p "$(dirname "$BACKUP/$rel_path")"
+        rm -rf "$BACKUP/$rel_path"
+        mv "$entry" "$BACKUP/$rel_path"
+        echo "  [backup] legacy skill copy $entry -> backup/$rel_path"
+      fi
+    done
+  done
+  # 소스가 사라진 config 관리 심링크도 정리한다.
+  for entry in "$legacy"/*; do
+    [ -L "$entry" ] || continue
+    case "$(readlink "$entry")" in
+      "$CONFIG"/*) rm "$entry"; echo "  [clean] legacy skill link removed: $entry" ;;
+    esac
+  done
+}
+
+# config/ai/codex/disabled-system-skills에 적힌 Codex 내장 스킬을 끈다(한 줄에 이름 하나, # 주석).
+# 내장 스킬 경로가 머신마다 달라 base 병합이 아니라 여기서 [[skills.config]] 항목을 보장한다.
+# 이미 같은 path 항목이 있으면 사용자가 바꾼 enabled 값을 그대로 둔다.
+disable_codex_system_skills() {
+  local list="$CONFIG/ai/codex/disabled-system-skills" cfg="$HOME/.codex/config.toml" name path
+  [ -f "$list" ] && [ -f "$cfg" ] || return 0
+  while IFS= read -r name; do
+    name="${name%%#*}"; name="$(echo "$name" | tr -d '[:space:]')"
+    [ -n "$name" ] || continue
+    path="$HOME/.codex/skills/.system/$name/SKILL.md"
+    grep -Fq "path = \"$path\"" "$cfg" && continue
+    printf '\n[[skills.config]]\npath = "%s"\nenabled = false\n' "$path" >> "$cfg"
+    echo "  [ok] disabled Codex system skill: $name"
+  done < "$list"
+}
+
 echo "--- $TOOL ---"
 
 case "$TOOL" in
@@ -190,7 +240,11 @@ case "$TOOL" in
     [ -d "$CONFIG/ai/codex/rules" ] && backup_and_link_dir "$CONFIG/ai/codex/rules" "$HOME/.codex/rules"
     # 선택 항목: config에 존재할 때만 링크
     [ -d "$CONFIG/ai/codex/prompts" ] && backup_and_link_dir "$CONFIG/ai/codex/prompts" "$HOME/.codex/prompts"
-    link_skills "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+    # Codex는 user-level 스킬을 도구 중립 경로 ~/.agents/skills에서 읽는다 (npx skills 서드파티와 공존).
+    # 예전 위치 ~/.codex/skills에 남은 config 스킬은 중복 노출을 막기 위해 정리한다. .system 등은 그대로 둔다.
+    link_skills "$HOME/.agents/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+    retire_skill_dir "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
+    disable_codex_system_skills
     ;;
   gemini)
     mkdir -p "$HOME/.gemini"
