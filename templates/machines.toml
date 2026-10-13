@@ -6,11 +6,11 @@
 #
 # [machines.<이름>]
 # host = "ssh-호스트"            # ~/.ssh/config의 Host 별칭 또는 user@host
-# components = "shell,codex"     # 이 머신에 적용할 컴포넌트 (shell, claude, codex, gemini)
+# components = "terminal,codex"     # 이 머신에 적용할 컴포넌트 (terminal, claude, codex, gemini)
 # apps = ["codex", "claude"]     # 이 머신에 설치할 앱. 생략하면 defaults.apps 상속
 # apps = []                     # 앱 자동 설치 없음
 # agents_addition = "shared-machine.md" # config/ai/agents-additions/에 보관한 추가 지침
-# zsh_addition = "example.zsh"          # config/shell/zshrc-additions/에 보관한 추가 셸 설정
+# zsh_addition = "example.zsh"          # config/terminal/zsh/additions/에 보관한 추가 셸 설정
 # transport = "hub"              # hub: 원격이 GitHub에서 git pull (기본값)
 #                                # direct: 제어 머신이 git push (GitHub 접근 불가 머신용,
 #                                #   원격에서 1회: git config receive.denyCurrentBranch updateInstead)
@@ -19,12 +19,12 @@
 # 예시:
 # [machines.work-server]
 # host = "link.rtzr.ai"
-# components = "shell,codex"
+# components = "terminal,codex"
 # apps = ["codex", "ripgrep", "jq"]
 #
 # [machines.gpu-common]
 # host = "reaper-common.rtzr.ai"
-# components = "shell"
+# components = "terminal"
 # apps = ["ripgrep", "tmux"]
 # transport = "direct"
 
@@ -38,5 +38,5 @@ apps = ["codex", "claude", "right-shift-english"]
 # 머신에서 같은 필드를 명시하면 교체한다. apps = []는 앱 설치를 끈다.
 # [local]에는 적용하지 않는다.
 [defaults]
-components = "shell,claude,codex"
+components = "terminal,claude,codex"
 apps = ["codex", "claude"]

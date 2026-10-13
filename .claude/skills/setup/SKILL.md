@@ -201,7 +201,7 @@ bash .claude/skills/setup/scripts/install-manifest-skills.sh
 ### 5-1. 기존 셸 설정 분석
 
 사용자의 현재 셸 설정 파일(`~/.zshrc` 또는 `~/.bashrc`)을 읽고, 내용을 항목별로 분석한다.
-이미 `config/shell/` 에 셸 파일이 존재하면 그것을 분석 대상으로 한다.
+이미 `config/terminal/zsh/` 에 셸 파일이 존재하면 그것을 분석 대상으로 한다.
 
 분석 기준:
 
@@ -277,7 +277,7 @@ OS 파일에는 경로 자체가 OS 고유인 것만 남긴다 (Homebrew, ~/Libr
 #### 멀티 OS인 경우
 
 ```
-config/shell/
+config/terminal/zsh/
 ├── zshrc              ← guard 기반 공통 설정 (OS 분기 source + local 레이어 source 포함)
 └── zshrc.d/
     ├── macos.zsh      ← macOS 전용 (Homebrew 경로, pnpm 등)
@@ -291,7 +291,7 @@ config/shell/
 #### 단일 OS인 경우
 
 ```
-config/shell/
+config/terminal/zsh/
 ├── zshrc              ← 현재 OS 기준 전체 설정
 └── zshrc.d/           ← (비어있거나 생략)
 ```
@@ -303,6 +303,7 @@ config/shell/
 
 ```bash
 bash .claude/skills/setup/scripts/link-shell.sh <zsh|bash>
+python3 .claude/skills/setup/scripts/terminal-config.py apply
 ```
 
 각 스크립트의 출력을 확인하여 성공/실패를 파악한다.
@@ -343,7 +344,7 @@ Setup 완료! dotfiles가 성공적으로 설정되었습니다.
 ```
   - Claude Code: ~/.claude/ -> config/ai/claude/
   - Codex CLI:   ~/.codex/  -> config/ai/codex/
-  - zsh:         ~/.zshrc   -> config/shell/zshrc
+  - zsh:         ~/.zshrc   -> config/terminal/zsh/zshrc
 
 이제 config/ 안의 파일을 편집하면 모든 도구에 반영됩니다.
 ```

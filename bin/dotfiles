@@ -8,7 +8,7 @@
 #
 # Usage:
 #   dotfiles install [tools] [--machine name] [--latest | --version tool=x.y.z] [--dry-run]
-#   dotfiles apply [components] [--machine name] # 이 머신에 적용 (예: shell,claude,codex)
+#   dotfiles apply [components] [--machine name] # 이 머신에 적용 (예: terminal,claude,codex)
 #   dotfiles pull [components]                 # 허브에서 두 레포를 받은 뒤 이 머신에 적용
 #   dotfiles push [machine ...] [--all] [--force] [--skip-secret-scan]
 #   dotfiles status [machine ...] [--all] [--json]  # 머신별 배포 상태/드리프트
@@ -112,7 +112,7 @@ cmd_apply() {
   fi
   if [ -z "$comps" ]; then
     # 미지정 시 config 내용 기반 자동 감지
-    comps="shell"
+    comps="terminal"
     [ -f "$CONFIG/ai/claude/settings.base.json" ] && comps="$comps,claude"
     [ -f "$CONFIG/ai/codex/config.base.toml" ] && comps="$comps,codex"
     [ -f "$CONFIG/ai/gemini/settings.json" ] && [ -d "$HOME/.gemini" ] && comps="$comps,gemini"
@@ -138,12 +138,13 @@ cmd_apply() {
   local rc=0 c
   for c in $(echo "$comps" | tr ',' ' '); do
     case "$c" in
-      shell)
+      shell|terminal)
         # zsh가 설치돼 있으면 로그인 셸과 무관하게 zsh 설정을 적용
         # (서버는 chsh 불가로 로그인 셸이 bash인 경우가 많음 — link-shell이 전환 블록 처리)
         local sh_type
         if command -v zsh >/dev/null 2>&1; then sh_type=zsh; else sh_type="$(basename "${SHELL:-/bin/bash}")"; fi
-        bash "$SCRIPTS/link-shell.sh" "$sh_type" || rc=1 ;;
+        bash "$SCRIPTS/link-shell.sh" "$sh_type" || rc=1
+        python3 "$SCRIPTS/terminal-config.py" apply || rc=1 ;;
       claude|codex|gemini)
         bash "$SCRIPTS/link-tool.sh" "$c" "$mode" || rc=1 ;;
       *)
@@ -161,7 +162,7 @@ cmd_apply() {
   fi
 
   echo ""
-  bash "$SCRIPTS/verify.sh" $mode --tools "$(echo "$comps" | sed 's/shell,\{0,1\}//')" || rc=1
+  bash "$SCRIPTS/verify.sh" $mode --tools "$(echo "$comps" | sed -E 's/(shell|terminal),?//g')" || rc=1
 
   # apply 성공 시에만 기록 — status가 "pull됐는데 apply 실패"를 감지하는 근거
   if [ $rc -eq 0 ]; then

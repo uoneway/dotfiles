@@ -1,6 +1,6 @@
 #!/bin/bash
 # unlink.sh — dotfiles 심링크 제거 및 backup/ 에서 원본 복원
-# Usage: bash unlink.sh [all|claude|codex|gemini|shell] [--restore|--keep|--remove-only]
+# Usage: bash unlink.sh [all|claude|codex|gemini|terminal|shell] [--restore|--keep|--remove-only]
 # --restore: backup/에서 원본 복원 (기본값)
 # --keep: 심링크를 제거하고 config/ 파일 내용을 실제 파일로 복사
 # --remove-only: 심링크만 제거
@@ -166,21 +166,26 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "gemini" ]; then
   echo ""
 fi
 
+# Terminal apps (machine-local files and live sessions remain).
+if [ "$TARGET" = "all" ] || [ "$TARGET" = "shell" ] || [ "$TARGET" = "terminal" ]; then
+  python3 "$DOTFILES/.claude/skills/setup/scripts/terminal-config.py" uninstall "$MODE"
+fi
+
 # Shell (AI 이후 제거)
-if [ "$TARGET" = "all" ] || [ "$TARGET" = "shell" ]; then
+if [ "$TARGET" = "all" ] || [ "$TARGET" = "shell" ] || [ "$TARGET" = "terminal" ]; then
   echo "--- shell ($USER_SHELL) ---"
   if [ "$USER_SHELL" = "zsh" ]; then
-    unlink_file "$HOME/.zshrc" "zshrc" "$CONFIG/shell/zshrc"
+    unlink_file "$HOME/.zshrc" "zshrc" "$CONFIG/terminal/zsh/zshrc"
     if [ -d "$HOME/.zshrc.d" ]; then
       for f in "$HOME/.zshrc.d"/*.zsh; do
-        [ -L "$f" ] && unlink_file "$f" "zshrc.d/$(basename "$f")" "$CONFIG/shell/zshrc.d/$(basename "$f")"
+        [ -L "$f" ] && unlink_file "$f" "zshrc.d/$(basename "$f")" "$CONFIG/terminal/zsh/zshrc.d/$(basename "$f")"
       done
     fi
   else
-    unlink_file "$HOME/.bashrc" "bashrc" "$CONFIG/shell/bashrc"
+    unlink_file "$HOME/.bashrc" "bashrc" "$CONFIG/terminal/bash/bashrc"
     if [ -d "$HOME/.bashrc.d" ]; then
       for f in "$HOME/.bashrc.d"/*.bash; do
-        [ -L "$f" ] && unlink_file "$f" "bashrc.d/$(basename "$f")" "$CONFIG/shell/bashrc.d/$(basename "$f")"
+        [ -L "$f" ] && unlink_file "$f" "bashrc.d/$(basename "$f")" "$CONFIG/terminal/bash/bashrc.d/$(basename "$f")"
       done
     fi
   fi

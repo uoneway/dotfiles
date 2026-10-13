@@ -49,7 +49,7 @@ AskUserQuestion으로 범위를 확인:
 1. `backup/` 파일(설치 이전 원본)과 대응하는 `config/` 파일(현재 설정)을 읽는다
 
 2. 두 파일을 비교하여 차이점을 분석한다:
-   - 예: `backup/.zshrc` vs `config/shell/zshrc`
+   - 예: `backup/.zshrc` vs `config/terminal/zsh/zshrc`
    - 예: `backup/.claude/settings.json` vs `config/ai/claude/settings.json`
 
 3. 차이가 있으면 사용자에게 보여주고 선택을 묻는다:

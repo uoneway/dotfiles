@@ -28,31 +28,24 @@ backup_and_link() {
 echo "--- shell ($SHELL_TYPE) ---"
 
 if [ "$SHELL_TYPE" = "zsh" ]; then
-  if [ -f "$CONFIG/shell/zshrc" ]; then
-    backup_and_link "$CONFIG/shell/zshrc" "$HOME/.zshrc"
+  if [ -f "$CONFIG/terminal/zsh/zshrc" ]; then
+    backup_and_link "$CONFIG/terminal/zsh/zshrc" "$HOME/.zshrc"
     mkdir -p "$HOME/.zshrc.d"
-    if [ -d "$CONFIG/shell/zshrc.d" ]; then
-      for f in "$CONFIG/shell/zshrc.d"/*.zsh; do
+    if [ -d "$CONFIG/terminal/zsh/zshrc.d" ]; then
+      for f in "$CONFIG/terminal/zsh/zshrc.d"/*.zsh; do
         [ -f "$f" ] && backup_and_link "$f" "$HOME/.zshrc.d/$(basename "$f")"
       done
-    fi
-    # Ghostty 설정 (macOS 전용). config가 `config-file = herdr.conf`로 Herdr key table을 참조한다.
-    if [ "$(uname -s)" = "Darwin" ] && [ -f "$CONFIG/shell/ghostty-config" ]; then
-      backup_and_link "$CONFIG/shell/ghostty-config" "$HOME/.config/ghostty/config"
-    fi
-    if [ "$(uname -s)" = "Darwin" ] && [ -f "$CONFIG/shell/ghostty-herdr.conf" ]; then
-      backup_and_link "$CONFIG/shell/ghostty-herdr.conf" "$HOME/.config/ghostty/herdr.conf"
     fi
     # 머신별 추가 셸 설정은 machines.toml에서 선택한다. OS 파일은 zshrc가 자동 선택한다.
     local_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || exit 1
     addition_link="$HOME/.zshrc.d/machine-addition.zsh"
     if [ -n "$local_addition" ]; then
-      addition_source="$CONFIG/shell/zshrc-additions/$local_addition"
+      addition_source="$CONFIG/terminal/zsh/additions/$local_addition"
       [ -f "$addition_source" ] || { echo "  [error] zsh addition not found: $addition_source" >&2; exit 1; }
       backup_and_link "$addition_source" "$addition_link"
     elif [ -L "$addition_link" ]; then
       case "$(readlink "$addition_link")" in
-        "$CONFIG/shell/zshrc-additions/"*) rm "$addition_link" ;;
+        "$CONFIG/terminal/zsh/additions/"*|"$CONFIG/shell/zshrc-additions/"*) rm "$addition_link" ;;
       esac
     fi
     # 로그인 셸이 zsh가 아니면(chsh 불가 서버 등) bashrc에 인터랙티브 전용 전환 블록 추가.
@@ -74,19 +67,19 @@ ZSHBLOCK
       fi
     fi
   else
-    echo "  [skip] config/shell/zshrc not found"
+    echo "  [skip] config/terminal/zsh/zshrc not found"
   fi
 elif [ "$SHELL_TYPE" = "bash" ]; then
-  if [ -f "$CONFIG/shell/bashrc" ]; then
-    backup_and_link "$CONFIG/shell/bashrc" "$HOME/.bashrc"
+  if [ -f "$CONFIG/terminal/bash/bashrc" ]; then
+    backup_and_link "$CONFIG/terminal/bash/bashrc" "$HOME/.bashrc"
     mkdir -p "$HOME/.bashrc.d"
-    if [ -d "$CONFIG/shell/bashrc.d" ]; then
-      for f in "$CONFIG/shell/bashrc.d"/*.bash; do
+    if [ -d "$CONFIG/terminal/bash/bashrc.d" ]; then
+      for f in "$CONFIG/terminal/bash/bashrc.d"/*.bash; do
         [ -f "$f" ] && backup_and_link "$f" "$HOME/.bashrc.d/$(basename "$f")"
       done
     fi
   else
-    echo "  [skip] config/shell/bashrc not found"
+    echo "  [skip] config/terminal/bash/bashrc not found"
   fi
 else
   echo "  [error] Unknown shell: $SHELL_TYPE (expected zsh or bash)"

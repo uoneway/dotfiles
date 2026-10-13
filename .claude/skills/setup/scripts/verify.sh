@@ -221,39 +221,44 @@ fi
 # Shell
 echo "--- shell ($USER_SHELL) ---"
 if [ "$USER_SHELL" = "zsh" ]; then
-  check_link "$HOME/.zshrc" "$CONFIG/shell/zshrc" "zshrc"
-  if [ -d "$CONFIG/shell/zshrc.d" ]; then
-    for f in "$CONFIG/shell/zshrc.d"/*.zsh; do
+  check_link "$HOME/.zshrc" "$CONFIG/terminal/zsh/zshrc" "zshrc"
+  if [ -d "$CONFIG/terminal/zsh/zshrc.d" ]; then
+    for f in "$CONFIG/terminal/zsh/zshrc.d"/*.zsh; do
       [ -f "$f" ] && check_link "$HOME/.zshrc.d/$(basename "$f")" "$f" "zshrc.d/$(basename "$f")"
     done
   fi
   zsh_addition="$(dotfiles_machine_extra "$(dotfiles_machine_name)" zsh_addition)" || { echo "  [fail] machine selection invalid"; ERRORS=$((ERRORS + 1)); zsh_addition=""; }
   if [ -n "$zsh_addition" ]; then
-    check_file_exists "$CONFIG/shell/zshrc-additions/$zsh_addition" "selected zsh addition"
+    check_file_exists "$CONFIG/terminal/zsh/additions/$zsh_addition" "selected zsh addition"
     if [ ! -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
       echo "  [fail] machine-addition.zsh is not linked"
       ERRORS=$((ERRORS + 1))
     fi
-    check_link "$HOME/.zshrc.d/machine-addition.zsh" "$CONFIG/shell/zshrc-additions/$zsh_addition" "machine-addition.zsh"
+    check_link "$HOME/.zshrc.d/machine-addition.zsh" "$CONFIG/terminal/zsh/additions/$zsh_addition" "machine-addition.zsh"
   elif [ -e "$HOME/.zshrc.d/machine-addition.zsh" ] || [ -L "$HOME/.zshrc.d/machine-addition.zsh" ]; then
     echo "  [fail] machine-addition.zsh exists but no zsh_addition is selected"
     ERRORS=$((ERRORS + 1))
   fi
 else
-  check_link "$HOME/.bashrc" "$CONFIG/shell/bashrc" "bashrc"
-  if [ -d "$CONFIG/shell/bashrc.d" ]; then
-    for f in "$CONFIG/shell/bashrc.d"/*.bash; do
+  check_link "$HOME/.bashrc" "$CONFIG/terminal/bash/bashrc" "bashrc"
+  if [ -d "$CONFIG/terminal/bash/bashrc.d" ]; then
+    for f in "$CONFIG/terminal/bash/bashrc.d"/*.bash; do
       [ -f "$f" ] && check_link "$HOME/.bashrc.d/$(basename "$f")" "$f" "bashrc.d/$(basename "$f")"
     done
   fi
 fi
 echo ""
 
+# Terminal app preferences and executable links (only when installed/managed).
+if ! python3 "$SCRIPTS/terminal-config.py" check; then
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Config integrity
 echo "--- config integrity ---"
 check_file_exists "$CONFIG/ai" "config/ai"
 check_file_exists "$CONFIG/ai/AGENTS.md" "config/ai/AGENTS.md"
-check_file_exists "$CONFIG/shell" "config/shell"
+check_file_exists "$CONFIG/terminal" "config/terminal"
 echo ""
 
 # Summary
