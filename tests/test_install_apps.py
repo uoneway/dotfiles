@@ -465,7 +465,7 @@ class InstallerTests(unittest.TestCase):
         scripts.mkdir(parents=True)
         initializer = scripts / "init-config.sh"
         initializer.write_bytes((ROOT / ".claude/skills/setup/scripts/init-config.sh").read_bytes())
-        for folder in ("ai", "shell", "installers"):
+        for folder in ("ai", "terminal", "installers"):
             (self.root / "templates" / folder).mkdir(exist_ok=True)
         (self.root / "templates/installers/example.sh").write_bytes((ROOT / "templates/installers/example.sh").read_bytes())
         subprocess.run(["bash", str(initializer)], check=True, capture_output=True)

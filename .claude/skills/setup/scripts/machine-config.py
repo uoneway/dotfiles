@@ -29,7 +29,7 @@ def validate_settings(entry, label):
             raise ValueError(f"{label}: {key} must be a single-line string")
         elif key == "components" and value:
             components = value.split(",")
-            if len(set(components)) != len(components) or set(components) - {"shell", "claude", "codex", "gemini"}:
+            if len(set(components)) != len(components) or set(components) - {"terminal", "shell", "claude", "codex", "gemini"}:
                 raise ValueError(f"{label}: invalid components")
         elif key == "transport" and value not in ("hub", "direct"):
             raise ValueError(f"{label}: transport must be hub or direct")

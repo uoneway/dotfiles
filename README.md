@@ -90,9 +90,19 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | 항목 | 동기화 | 방식 |
 |---|:---:|---|
 | `zshrc` (guard 기반 공통), `zshrc.d/{macos,linux}.zsh` | ✅ | 심링크. `uname`으로 OS별 파일 자동 선택 |
-| `zshrc-additions/`의 선택된 파일 | ✅ | `machines.toml`의 `zsh_addition`을 `~/.zshrc.d/machine-addition.zsh`에 링크해 로드 |
+| `terminal/zsh/additions/`의 선택된 파일 | ✅ | `machines.toml`의 `zsh_addition`을 `~/.zshrc.d/machine-addition.zsh`에 링크해 로드 |
 | `zshrc.d/local.zsh` (머신 전용 설정) | ❌ | 의도적 로컬 실파일 |
 | `zshrc.d/secrets.zsh` (API 키·토큰) | ❌ | **절대 동기화 금지** — push 전 secret 스캔이 이중 방어 |
+
+### 터미널 앱과 실행 도구
+
+`terminal` 컴포넌트는 셸 설정, 설치된 Ghostty·Herdr의 설정, `config/bin/`의 실행 파일을 적용한다. 기존 `shell` 컴포넌트 이름도 같은 동작을 하는 호환 별칭으로 지원한다. 앱 설치 선택은 여전히 `apps`가 결정한다.
+
+- Ghostty: `terminal/ghostty/common.conf`와 `profiles/*.conf`를 파일별로 링크한다. 기존 기본 설정은 `~/.config/ghostty/local.conf`에 보존하고, 이미 로컬 파일이 있으면 기존 설정을 `local.pre-dotfiles.conf`에 보존한다. 기본 설정은 공통 → 기존 머신 설정 → 로컬 설정 순서로 읽는다. 공통과 동일한 기존 설정 줄은 로컬 파일에 중복하지 않는다. 로컬 파일은 동기화하지 않는다.
+- Herdr: `terminal/herdr/config.base.toml`에 정의된 키만 `~/.config/herdr/config.toml`에 병합한다. 그 외 머신별 키, 등록 머신, 세션, 로그, 소켓은 보존한다. 실행 중인 서버는 설정만 다시 로드하고 pane을 재시작하지 않는다. `terminal.shell_mode = "login"`은 새 pane부터 적용된다.
+- `config/bin/hdr`: `~/.local/bin/hdr`에 링크한다. Ghostty에서 별도 창을 열 때만 `profiles/herdr.conf`를 적용하므로 일반 창의 키 매핑은 유지된다.
+
+Ghostty의 `config-file` 상대경로는 그 줄을 적은 설정 파일의 디렉터리를 기준으로 한다. 기본 설정에 `config-file = profiles/herdr.conf`를 넣으면 일반 창에도 Herdr용 키 매핑이 적용되므로, 전용 창만 사용할 때는 `hdr`가 프로파일을 전달하게 둔다.
 
 Gemini CLI는 템플릿만 제공하며 기본 비활성입니다 (Antigravity 전환이 안정되면 재검토).
 
@@ -129,10 +139,12 @@ dotfiles/                              # public: 프레임워크
 │   │       ├── config.base.toml       #   → ~/.codex/config.toml 에 병합
 │   │       ├── skills/                #   Codex 전용
 │   │       └── rules/
-│   └── shell/
-│       ├── zshrc                      #   guard 기반 공통 설정
-│       ├── zshrc.d/                   #   macos.zsh / linux.zsh (OS 자동 선택)
-│       └── zshrc-additions/          #   machines.toml에서 선택하는 추가 셸 설정
+│   ├── terminal/                     #   터미널 작업 환경
+│   │   ├── zsh/                      #   zshrc, zshrc.d/, additions/
+│   │   ├── bash/                     #   Bash 설정 (선택)
+│   │   ├── ghostty/                  #   common.conf, profiles/herdr.conf
+│   │   └── herdr/config.base.toml    #   공통 키만 라이브 config.toml에 병합
+│   └── bin/hdr                       #   → ~/.local/bin/hdr
 │
 ├── backup/                            # 설치 이전 원본 (gitignored)
 └── README.md
@@ -152,7 +164,7 @@ dotfiles/                              # public: 프레임워크
 2. 각 머신에 1회 부트스트랩 (clone 2개 + `bin/dotfiles apply`)
 3. 이후 제어 머신에서 `dotfiles push`
 
-`config/machines.toml`의 `agents_addition`과 `zsh_addition`으로 머신별 추가 파일을 선택한다. 파일은 각각 `config/ai/agents-additions/`와 `config/shell/zshrc-additions/`에 둔다.
+`config/machines.toml`의 `agents_addition`과 `zsh_addition`으로 머신별 추가 파일을 선택한다. 파일은 각각 `config/ai/agents-additions/`와 `config/terminal/zsh/additions/`에 둔다.
 
 `push`는 머신 이름을 원격 `apply`에 전달한다. 원격에서 직접 `dotfiles apply`를 실행해도 저장된 이름으로 같은 파일을 선택한다. 제어 머신과 이동형 랩탑은 목록에 없으므로 공통 설정만 적용한다. 셸의 macOS/Linux 선택은 모든 머신에서 자동으로 이뤄진다.
 

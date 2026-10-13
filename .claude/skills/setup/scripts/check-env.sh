@@ -34,7 +34,7 @@ HAS_NVM=false
 
 # config/ 존재 여부
 HAS_CONFIG=false
-[ -d "$DOTFILES/config/ai" ] || [ -d "$DOTFILES/config/shell" ] && HAS_CONFIG=true
+[ -d "$DOTFILES/config/ai" ] || [ -d "$DOTFILES/config/terminal" ] && HAS_CONFIG=true
 
 # 출력
 echo "=== ENVIRONMENT ==="

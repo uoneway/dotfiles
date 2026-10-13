@@ -6,7 +6,7 @@ DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 TEMPLATES="$DOTFILES/templates"
 
-if [ -d "$CONFIG/ai" ] || [ -d "$CONFIG/shell" ]; then
+if [ -d "$CONFIG/ai" ] || [ -d "$CONFIG/terminal" ] || [ -d "$CONFIG/shell" ]; then
   echo "[skip] config/ already exists. Skipping initial copy."
   exit 0
 fi
@@ -18,7 +18,7 @@ mkdir -p "$CONFIG"
 cp -r "$TEMPLATES/ai" "$CONFIG/ai"
 
 # 셸 설정
-cp -r "$TEMPLATES/shell" "$CONFIG/shell"
+cp -r "$TEMPLATES/terminal" "$CONFIG/terminal"
 
 # 머신 인벤토리 (멀티 머신 배포용)
 [ -f "$TEMPLATES/machines.toml" ] && cp "$TEMPLATES/machines.toml" "$CONFIG/machines.toml"
