@@ -178,7 +178,9 @@ class TerminalConfigTest(unittest.TestCase):
     def test_override_warnings_are_read_only_and_hide_values(self):
         shared = self.root / "config/terminal/zsh"
         shared.mkdir(parents=True)
-        (shared / "zshrc").write_text("export PATH=shared\nalias gc=shared\nhelper() { :; }\n")
+        (shared / "zshrc").write_text("export PATH=shared\nhelper() { :; }\n")
+        (shared / "zshrc.d").mkdir()
+        (shared / "zshrc.d/aliases.zsh").write_text("alias gc=shared\n")
         local = self.home / ".zshrc.d/local.zsh"
         local.parent.mkdir()
         sentinel = self.home / "must-not-execute"
