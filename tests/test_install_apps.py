@@ -185,7 +185,7 @@ class InstallerTests(unittest.TestCase):
     def test_unknown_app_release_fails_before_install(self):
         with self.assertRaises(ValueError): apps.app_source("9.9.9")
         version, source = apps.app_source("latest")
-        self.assertEqual(version, "1.0.4")
+        self.assertEqual(version, "1.0.5")
         self.assertTrue(source.exists())
 
     def test_missing_app_release_stops_entire_plan_before_cli_install(self):
@@ -625,12 +625,12 @@ class InstallerTests(unittest.TestCase):
             self.assertIn("[action]", output.getvalue())
             self.assertNotIn("[ok] right-shift-english", output.getvalue())
             app = self.root / "Applications/Right Shift English.app"
-            self.assertEqual(apps.reported_version(app / "Contents/MacOS/shift-english"), "1.0.4")
+            self.assertEqual(apps.reported_version(app / "Contents/MacOS/shift-english"), "1.0.5")
             agent = plistlib.loads((self.root / f"Library/LaunchAgents/{apps.LABEL}.plist").read_bytes())
             self.assertEqual(agent["KeepAlive"], {"Crashed": True})
             self.assertEqual(agent["ProgramArguments"], [str(app / "Contents/MacOS/shift-english")])
             commands.clear()
-            apps.install_app("1.0.4", self.root)
+            apps.install_app("1.0.5", self.root)
             self.assertFalse(any(c[0] in ("swiftc", "codesign") for c in commands))
 
     def test_startup_failure_does_not_pass_health_check(self):

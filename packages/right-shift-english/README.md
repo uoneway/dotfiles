@@ -1,8 +1,41 @@
 # Right Shift English
 
-Hold right Shift for temporary uppercase English; release it to restore the
-baseline input source. F18 toggles the baseline between ABC and Korean. The app
+Hold right Shift and type a letter for temporary uppercase English; release it
+to restore the baseline input source. F18 toggles the baseline between ABC and Korean. The app
 runs independently of Karabiner; Karabiner may map Caps Lock to F18.
+
+## 1.0.5: keep punctuation in the current input method
+
+Right Shift alone no longer switches input sources. A plain alphabetic key
+starts temporary English; releasing right Shift restores the baseline only if
+temporary English actually started. Punctuation, digits, navigation keys, and
+Control/Command/Option shortcuts do not start a transition. Thus typing `?`
+after Korean no longer interrupts its composition with an ABC/Korean round trip.
+Once a letter has started temporary English, it lasts until right Shift is released.
+
+This removes the helper's transition and queue delay for punctuation. It does
+not claim to fix every target application's composition behavior, or reduce
+the existing native activation wait when a language switch is actually needed.
+
+Status replies now summarize the last error and expose the last transition.
+Full failure diagnostics stay in `daemon-error.log`. Previous replies could
+exceed Darwin's 2048-byte Unix datagram limit after an error; the send failed
+silently and clients timed out. Replies are bounded and send errors are reported.
+
+The desktop-independent regressions exercise the production controller and
+event queue, replacing only input-source access/activation and event delivery:
+
+```sh
+python3 packages/right-shift-english/tests/run_pipeline.py 1.0.5
+python3 packages/right-shift-english/tests/run_pipeline.py 1.0.5 --existing-tests
+```
+
+The first includes a real Unix socket round trip after repeated transition
+failures. Running it against `1.0.4` demonstrates the unnecessary punctuation
+transitions and oversized status response. The second runs the existing
+interruption, recovery, and keyboard checks with simulated input sources and
+an isolated journal. Neither posts keyboard events to the desktop. These tests
+verify queue/source behavior, not the text composed by a real application's IME.
 
 ## 1.0.4: shorter waits, safe completion handling, and diagnostic context
 
@@ -104,7 +137,7 @@ Build and run the keyboard pipeline regression checks when the regular daemon
 is stopped and the keyboard is not in use:
 
 ```sh
-swiftc -O packages/right-shift-english/1.0.4/ShiftEnglish.swift -o /tmp/right-shift-english-test
+swiftc -O packages/right-shift-english/1.0.5/ShiftEnglish.swift -o /tmp/right-shift-english-test
 /tmp/right-shift-english-test --self-test-interruption
 /tmp/right-shift-english-test --self-test-recovery
 /tmp/right-shift-english-test --self-test-keyboard
