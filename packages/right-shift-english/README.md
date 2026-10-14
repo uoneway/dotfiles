@@ -21,6 +21,9 @@ Status replies now summarize the last error and expose the last transition.
 Full failure diagnostics stay in `daemon-error.log`. Previous replies could
 exceed Darwin's 2048-byte Unix datagram limit after an error; the send failed
 silently and clients timed out. Replies are bounded and send errors are reported.
+The installer now also requires a successful status reply before reporting
+startup success. A momentary launchd `running` state can precede an event-tap
+permission failure and is not sufficient evidence that the app is ready.
 
 The desktop-independent regressions exercise the production controller and
 event queue, replacing only input-source access/activation and event delivery:

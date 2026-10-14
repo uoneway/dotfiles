@@ -641,8 +641,17 @@ class InstallerTests(unittest.TestCase):
 
     def test_running_app_passes_health_check(self):
         result = subprocess.CompletedProcess([], 0, stdout="\tstate = running\n")
-        with patch.object(apps.subprocess, "run", return_value=result):
+        with patch.object(apps.subprocess, "run", return_value=result), \
+             patch.object(apps, "app_responds", return_value=True, create=True):
             apps.wait_for_app("gui/501", timeout=0)
+
+    def test_running_without_ready_socket_does_not_pass_health_check(self):
+        # launchd briefly reports running before the event tap fails permission.
+        result = subprocess.CompletedProcess([], 0, stdout="\tstate = running\n")
+        with patch.object(apps.subprocess, "run", return_value=result), \
+             patch.object(apps, "app_responds", return_value=False, create=True):
+            with self.assertRaisesRegex(RuntimeError, "did not stay running"):
+                apps.wait_for_app("gui/501", timeout=0)
 
     def test_build_failure_preserves_existing_app(self):
         app = self.root / "Applications/Right Shift English.app"

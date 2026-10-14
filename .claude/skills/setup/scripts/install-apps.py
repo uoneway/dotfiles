@@ -12,6 +12,7 @@ import plistlib
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -342,10 +343,29 @@ def app_is_running(domain):
     return result.returncode == 0 and bool(re.search(r"^\s*state = running$", result.stdout, re.MULTILINE))
 
 
-def wait_for_app(domain, timeout=3):
+def app_responds(runtime):
+    # The socket is bound only after the keyboard event tap starts successfully.
+    # launchd's short-lived "running" state alone also includes startup failures.
+    with tempfile.TemporaryDirectory(prefix="shift-english-test-", dir="/tmp") as temporary:
+        reply_path = str(Path(temporary) / "reply.sock")
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
+            client.settimeout(0.25)
+            try:
+                client.bind(reply_path)
+                client.sendto(json.dumps({"command": "status", "reply_to": reply_path}).encode(),
+                              str(runtime / "commands.sock"))
+                reply = json.loads(client.recv(65536))
+                return (isinstance(reply, dict) and reply.get("ok") is True
+                        and isinstance(reply.get("current"), str) and bool(reply["current"]))
+            except (OSError, ValueError):
+                return False
+
+
+def wait_for_app(domain, timeout=3, runtime=None):
+    runtime = runtime or Path.home() / ".local/share/karabiner-shift-english"
     deadline = time.monotonic() + timeout
     while True:
-        if app_is_running(domain):
+        if app_is_running(domain) and app_responds(runtime):
             return
         if time.monotonic() >= deadline:
             raise RuntimeError("Right Shift English did not stay running; check "
@@ -414,7 +434,7 @@ def install_app(requested, home, root=ROOT, recipe=None):
     if permission:
         run(["launchctl", "kickstart", f"{domain}/{LABEL}"])
         try:
-            wait_for_app(domain)
+            wait_for_app(domain, runtime=runtime)
         except RuntimeError:
             if "--request-permission" in source.read_text():
                 run(["open", "-n", str(app), "--args", "--request-permission"], check=False)
