@@ -103,6 +103,10 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 - Herdr: `terminal/herdr/config.base.toml`에 정의된 키만 `~/.config/herdr/config.toml`에 병합한다. 그 외 머신별 키, 등록 머신, 세션, 로그, 소켓은 보존한다. 실행 중인 서버는 설정만 다시 로드하고 pane을 재시작하지 않는다. `terminal.shell_mode = "login"`은 새 pane부터 적용된다.
 - `config/bin/hdr`: `~/.local/bin/hdr`에 링크한다. Ghostty에서 별도 창을 열 때만 `profiles/herdr.conf`를 적용하므로 일반 창의 키 매핑은 유지된다.
 
+### Karabiner-Elements (macOS)
+
+`config/keyboard/karabiner.json`은 Karabiner의 원래 JSON 구조를 사용한다. Mac에 Karabiner-Elements가 설치되어 있으면 `dotfiles apply`가 공용 설정(`global`과 프로파일의 기기 외 설정)을 로컬 `~/.config/karabiner/karabiner.json`에 덮어쓴다. 각 프로파일의 `devices`는 `identifiers` 전체가 같으면 그 기기 항목을 통째로 교체하고, 없으면 추가한다. 공용 파일에 없는 로컬 기기는 유지한다. 적용 전 기존 파일은 `backup/.config/karabiner/karabiner.json`에 한 번 백업하며, `verify`는 같은 병합 결과인지 확인한다. Linux 머신과 Karabiner가 설치되지 않은 Mac에서는 건너뛴다.
+
 Ghostty의 `config-file` 상대경로는 그 줄을 적은 설정 파일의 디렉터리를 기준으로 한다. 기본 설정에 `config-file = profiles/herdr.conf`를 넣으면 일반 창에도 Herdr용 키 매핑이 적용되므로, 전용 창만 사용할 때는 `hdr`가 프로파일을 전달하게 둔다.
 
 `apply`와 `verify`는 `local.zsh`에 공통과 같은 이름의 변수·alias·함수 선언이 있거나 Ghostty 로컬 파일에 공통과 같은 옵션이 있으면 경고한다. 경고는 적용을 막지 않으며 값은 출력하지 않는다. 정적으로 인식하는 선언만 검사하므로 동적 `eval`, 추가 `source` 파일, 간접 선언은 감지하지 못할 수 있다. `secrets.zsh`는 검사하지 않는다.
@@ -150,6 +154,7 @@ dotfiles/                              # public: 프레임워크
 │   │   ├── zsh/                      #   zshrc, zshrc.d/, additions/
 │   │   ├── ghostty/                  #   common.conf, profiles/herdr.conf
 │   │   └── herdr/config.base.toml    #   공통 키만 라이브 config.toml에 병합
+│   ├── keyboard/karabiner.json        #   macOS Karabiner 공용·기기별 설정
 │   └── bin/hdr                       #   → ~/.local/bin/hdr
 │
 ├── backup/                            # 설치 이전 원본 (gitignored)

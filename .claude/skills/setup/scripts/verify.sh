@@ -239,6 +239,10 @@ if ! python3 "$SCRIPTS/terminal-config.py" check; then
   ERRORS=$((ERRORS + 1))
 fi
 
+if ! python3 "$SCRIPTS/karabiner-config.py" check; then
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Config integrity
 echo "--- config integrity ---"
 check_file_exists "$CONFIG/ai" "config/ai"
