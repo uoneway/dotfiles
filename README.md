@@ -103,6 +103,12 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 - Herdr: `terminal/herdr/config.base.toml`에 정의된 키만 `~/.config/herdr/config.toml`에 병합한다. 그 외 머신별 키, 등록 머신, 세션, 로그, 소켓은 보존한다. 실행 중인 서버는 설정만 다시 로드하고 pane을 재시작하지 않는다. `terminal.shell_mode = "login"`은 새 pane부터 적용된다.
 - `config/bin/hdr`: `~/.local/bin/hdr`에 링크한다. Ghostty에서 별도 창을 열 때만 `profiles/herdr.conf`를 적용하므로 일반 창의 키 매핑은 유지된다.
 
+### macOS 키보드 설정
+
+`config/keyboard/macos.json`이 있으면 `dotfiles apply`가 macOS 사용자 환경설정에 적용한다. `dotfiles pull`도 두 저장소를 갱신한 뒤 같은 설정을 적용한다. Linux에서는 건너뛰며 Karabiner 설치 여부와는 무관하다. `verify`는 값을 읽어 확인하고, 설정이 달라도 변경하지 않는다.
+
+지원하는 키는 `TSMLanguageIndicatorEnabled`이며 정수 `0` 또는 `1`을 지정한다. `0`은 커서 옆 입력 소스 표시 기능을 비활성화해 연속 한영 전환 지연을 줄이기 위한 설정이다. 다른 형태의 전환 UI는 나타날 수 있다. 적용 후 실행 중인 앱을 다시 열어야 하며, 전체에 반영하려면 로그아웃 후 로그인한다. 원복하려면 값을 `1`로 바꿔 적용하거나, 파일을 제거한 뒤 각 Mac에서 `defaults delete -g TSMLanguageIndicatorEnabled`를 실행한다. 파일 제거만으로 기존 설정을 삭제하지는 않는다.
+
 ### Karabiner-Elements (macOS)
 
 `config/keyboard/karabiner.json`은 Karabiner의 원래 JSON 구조를 사용한다. Mac에 Karabiner-Elements가 설치되어 있으면 `dotfiles apply`가 공용 설정(`global`과 프로파일의 기기 외 설정)을 로컬 `~/.config/karabiner/karabiner.json`에 덮어쓴다. 각 프로파일의 `devices`는 `identifiers` 전체가 같으면 그 기기 항목을 통째로 교체하고, 없으면 추가한다. 공용 파일에 없는 로컬 기기는 유지한다. 적용 전 기존 파일은 `backup/.config/karabiner/karabiner.json`에 한 번 백업하며, `verify`는 같은 병합 결과인지 확인한다. Linux 머신과 Karabiner가 설치되지 않은 Mac에서는 건너뛴다.
