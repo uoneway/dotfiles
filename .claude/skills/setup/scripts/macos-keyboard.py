@@ -10,7 +10,11 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / "config/keyboard/macos.json"
-KEY = "TSMLanguageIndicatorEnabled"
+SETTINGS = {
+    "TSMLanguageIndicatorEnabled": (0, 1),
+    "InitialKeyRepeat": (11,),
+    "KeyRepeat": (1,),
+}
 
 
 def run(action, source=SOURCE):
@@ -21,28 +25,36 @@ def run(action, source=SOURCE):
         print("  [skip] macOS keyboard: shared config not found")
         return 0
     settings = json.loads(source.read_text(encoding="utf-8"))
-    if not isinstance(settings, dict) or set(settings) != {KEY}:
-        raise ValueError(f"macOS keyboard config must contain only {KEY}")
-    desired = settings[KEY]
-    if type(desired) is not int or desired not in (0, 1):
-        raise ValueError(f"{KEY} must be integer 0 or 1")
+    if not isinstance(settings, dict) or not settings or set(settings) - SETTINGS.keys():
+        raise ValueError(f"macOS keyboard config keys must be from: {', '.join(SETTINGS)}")
 
-    value = subprocess.run(["/usr/bin/defaults", "read", "-g", KEY],
-                           capture_output=True, text=True)
-    kind = subprocess.run(["/usr/bin/defaults", "read-type", "-g", KEY],
-                          capture_output=True, text=True)
-    if (value.returncode == 0 and value.stdout.strip() == str(desired)
-            and kind.returncode == 0 and kind.stdout.strip() == "Type is integer"):
-        print(f"  [ok] macOS keyboard: {KEY} = {desired}")
-        return 0
-    if action == "check":
-        print(f"  [fail] macOS keyboard: {KEY} drifted (run dotfiles apply)")
+    drifted = []
+    for key, desired in settings.items():
+        if type(desired) is not int or desired not in SETTINGS[key]:
+            allowed = " or ".join(map(str, SETTINGS[key]))
+            raise ValueError(f"{key} must be integer {allowed}")
+
+        value = subprocess.run(["/usr/bin/defaults", "read", "-g", key],
+                               capture_output=True, text=True)
+        kind = subprocess.run(["/usr/bin/defaults", "read-type", "-g", key],
+                              capture_output=True, text=True)
+        matches = (value.returncode == 0 and value.stdout.strip() == str(desired)
+                   and kind.returncode == 0 and kind.stdout.strip() == "Type is integer")
+        if matches:
+            print(f"  [ok] macOS keyboard: {key} = {desired}")
+            continue
+        if action == "check":
+            print(f"  [fail] macOS keyboard: {key} drifted (run dotfiles apply)")
+            drifted.append(key)
+            continue
+
+        subprocess.run(["/usr/bin/defaults", "write", "-g", key, "-int", str(desired)],
+                       check=True, capture_output=True, text=True)
+        print(f"  [ok] macOS keyboard: applied {key} = {desired}")
+    if drifted:
         return 1
-
-    subprocess.run(["/usr/bin/defaults", "write", "-g", KEY, "-int", str(desired)],
-                   check=True, capture_output=True, text=True)
-    print(f"  [ok] macOS keyboard: applied {KEY} = {desired}")
-    print("  [info] Relaunch apps to use the preference; log out and back in to apply everywhere.")
+    if action == "apply":
+        print("  [info] Log out and back in to apply keyboard repeat changes everywhere.")
     return 0
 
 

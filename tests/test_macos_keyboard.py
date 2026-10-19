@@ -20,7 +20,11 @@ class MacOSKeyboardTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.source = Path(tmp.name) / "macos.json"
-        self.source.write_text(json.dumps({keyboard.KEY: 0}))
+        self.source.write_text(json.dumps({
+            "TSMLanguageIndicatorEnabled": 0,
+            "InitialKeyRepeat": 11,
+            "KeyRepeat": 1,
+        }))
         self.values = {}
         self.writes = []
         self.platform = patch.object(keyboard.platform, "system", return_value="Darwin")
@@ -46,7 +50,7 @@ class MacOSKeyboardTest(unittest.TestCase):
         self.assertEqual(keyboard.run("check", self.source), 1)
         self.assertEqual(self.writes, [])
         self.assertEqual(keyboard.run("apply", self.source), 0)
-        self.assertEqual(self.values[keyboard.KEY], ("0", "integer"))
+        self.assertEqual(self.values["TSMLanguageIndicatorEnabled"], ("0", "integer"))
         self.assertEqual(keyboard.run("apply", self.source), 0)
         self.assertEqual(keyboard.run("check", self.source), 0)
         self.assertEqual(len(self.writes), 1)
@@ -60,14 +64,15 @@ class MacOSKeyboardTest(unittest.TestCase):
         self.mock_run.assert_not_called()
 
     def test_string_zero_is_repaired_as_integer(self):
-        self.values[keyboard.KEY] = ("0", "string")
+        self.values["TSMLanguageIndicatorEnabled"] = ("0", "string")
         self.assertEqual(keyboard.run("check", self.source), 1)
         self.assertEqual(self.writes, [])
         self.assertEqual(keyboard.run("apply", self.source), 0)
-        self.assertEqual(self.values[keyboard.KEY], ("0", "integer"))
+        self.assertEqual(self.values["TSMLanguageIndicatorEnabled"], ("0", "integer"))
 
     def test_invalid_config_never_touches_preferences(self):
-        for data in ({keyboard.KEY: False}, {keyboard.KEY: 2}, {"unknown": 0}):
+        for data in ({"TSMLanguageIndicatorEnabled": False},
+                     {"TSMLanguageIndicatorEnabled": 2}, {"unknown": 0}):
             with self.subTest(data=data):
                 self.source.write_text(json.dumps(data))
                 with self.assertRaises(ValueError):
