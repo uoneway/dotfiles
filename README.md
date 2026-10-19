@@ -101,6 +101,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 
 - Ghostty: `terminal/ghostty/common.conf`와 `profiles/*.conf`를 파일별로 링크한다. 기존 기본 설정은 `~/.config/ghostty/local.conf`에 보존하고, 이미 로컬 파일이 있으면 기존 설정을 `local.pre-dotfiles.conf`에 보존한다. 기본 설정은 공통 → 기존 머신 설정 → 로컬 설정 순서로 읽는다. 공통과 동일한 기존 설정 줄은 로컬 파일에 중복하지 않는다. 로컬 파일은 동기화하지 않는다.
 - Herdr: `terminal/herdr/config.base.toml`에 정의된 키만 `~/.config/herdr/config.toml`에 병합한다. 그 외 머신별 키, 등록 머신, 세션, 로그, 소켓은 보존한다. 실행 중인 서버는 설정만 다시 로드하고 pane을 재시작하지 않는다. `terminal.shell_mode = "login"`은 새 pane부터 적용된다.
+- Herdr UI: `terminal/herdr/config-gpui.base.toml`의 키를 `$XDG_CONFIG_HOME/herdr/config-gpui.local.toml`(기본 `~/.config/herdr/`)에 병합한다. 앱이 설치되었거나 기존 사용자 설정 파일이 있을 때 적용하며, 앱이 자동 생성하는 `config-gpui.toml`은 관리하지 않는다. 공통 설정은 base에서 수정한 뒤 `dotfiles apply terminal`로 적용한다. UI에서 바꾼 공통 키는 다음 apply 때 base 값으로 돌아가며, 그 외 로컬 키는 보존한다. 실행 중인 UI는 파일 변경을 자동 반영한다.
 - `config/bin/hdr`: `~/.local/bin/hdr`에 링크한다. Ghostty에서 별도 창을 열 때만 `profiles/herdr.conf`를 적용하므로 일반 창의 키 매핑은 유지된다.
 
 ### macOS 키보드 설정
@@ -159,7 +160,9 @@ dotfiles/                              # public: 프레임워크
 │   ├── terminal/                     #   터미널 작업 환경
 │   │   ├── zsh/                      #   zshrc, zshrc.d/, additions/
 │   │   ├── ghostty/                  #   common.conf, profiles/herdr.conf
-│   │   └── herdr/config.base.toml    #   공통 키만 라이브 config.toml에 병합
+│   │   └── herdr/                    #   daemon·UI 공통 키만 병합
+│   │       ├── config.base.toml       #   → herdr/config.toml
+│   │       └── config-gpui.base.toml  #   → herdr/config-gpui.local.toml
 │   ├── keyboard/karabiner.json        #   macOS Karabiner 공용·기기별 설정
 │   └── bin/hdr                       #   → ~/.local/bin/hdr
 │

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / ".claude/skills/setup/scripts"
@@ -88,6 +89,36 @@ class TerminalConfigTest(unittest.TestCase):
         self.assertEqual(self.merge(base, target).returncode, 0)
         self.assertEqual(self.merge(base, target, check=True).returncode, 0)
         self.assertEqual(after, self.snapshot(self.root))
+
+    def test_herdr_ui_merge_check_and_restore_preserve_local_state(self):
+        base = self.root / "config/terminal/herdr/config-gpui.base.toml"
+        base.parent.mkdir(parents=True)
+        base.write_text('theme = "Nord"\n[terminal]\nsize = 12.0\n')
+        target = self.xdg / "herdr/config-gpui.local.toml"
+        target.parent.mkdir(parents=True)
+        original = 'theme = "Default"\nlayout = "compact"\n[terminal]\nsize = 16.0\nfamily = "Local Font"\n'
+        target.write_text(original)
+        defaults = target.with_name("config-gpui.toml")
+        defaults.write_text('# Managed by the app\ntheme = "Default"\n')
+        session = target.with_name("session.json")
+        session.write_text('{"workspace": "machine-only"}')
+        before = self.snapshot(self.root)
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.manager.herdr_ui(True)
+        self.assertEqual(before, self.snapshot(self.root))
+        env = {"DOTFILES_BACKUP": str(self.root / "backup"), "HOME": str(self.home)}
+        with patch.dict(os.environ, env):
+            self.manager.herdr_ui(False)
+        self.assertEqual(target.read_text(), original.replace('"Default"', '"Nord"').replace('16.0', '12.0'))
+        after = self.snapshot(self.root)
+        self.manager.herdr_ui(True)
+        with patch.dict(os.environ, env):
+            self.manager.herdr_ui(False)
+        self.assertEqual(after, self.snapshot(self.root))
+        self.manager.uninstall("--restore")
+        self.assertEqual(target.read_text(), original)
+        self.assertEqual(defaults.read_text(), '# Managed by the app\ntheme = "Default"\n')
+        self.assertEqual(session.read_text(), '{"workspace": "machine-only"}')
 
     def test_toml_check_does_not_convert_symlinks_and_invalid_merge_is_not_written(self):
         base = self.root / "base.toml"

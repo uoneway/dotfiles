@@ -120,6 +120,19 @@ class TerminalConfig:
                 subprocess.run([binary, "server", "reload-config"], check=True, timeout=15)
         print("  [ok] Herdr base keys; machine settings and sessions preserved")
 
+    def herdr_ui(self, check):
+        base = self.config / "terminal/herdr/config-gpui.base.toml"
+        target = self.xdg / "herdr/config-gpui.local.toml"
+        installed = shutil.which("herdr-gpui") or Path("/Applications/Herdr.app").exists()
+        if not base.is_file() or not (installed or target.is_file()):
+            return
+        command = ["bash", str(self.scripts / "merge-toml.sh"), str(base), str(target)]
+        if check:
+            command.append("--check")
+        subprocess.run(command, check=True)
+        # The app watches the local overrides; its managed defaults stay untouched.
+        print("  [ok] Herdr UI base keys; other local preferences preserved")
+
     def run(self, check=False):
         bins = self.config / "bin"
         if bins.is_dir():
@@ -128,6 +141,7 @@ class TerminalConfig:
                     self.link(source, self.home / ".local/bin" / source.name, check)
         self.ghostty(check)
         self.herdr(check)
+        self.herdr_ui(check)
         self.warn_overrides()
 
     def warn_overrides(self):
@@ -217,10 +231,11 @@ class TerminalConfig:
             else:
                 live.write_text('config-file = "?local.pre-dotfiles.conf"\n'
                                 'config-file = "?local.conf"\n')
-        herdr = self.xdg / "herdr/config.toml"
-        backup = self.backup / herdr.relative_to(self.home)
-        if mode == "--restore" and backup.is_file():
-            shutil.copy2(backup, herdr)
+        for name in ("config.toml", "config-gpui.local.toml"):
+            herdr = self.xdg / "herdr" / name
+            backup = self.backup / herdr.relative_to(self.home)
+            if mode == "--restore" and backup.is_file():
+                shutil.copy2(backup, herdr)
         print("  [ok] terminal app links removed; local files and sessions preserved")
 
 
