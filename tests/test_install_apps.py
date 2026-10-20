@@ -167,10 +167,12 @@ class InstallerTests(unittest.TestCase):
         self.binary(native, "2.1.277 (Claude Code)")
         apps.install_cli("claude", "2.1.277", self.root)
         self.assertIn("DISABLE_AUTOUPDATER=1", binary.read_text())
+        self.assertIn("exec -a claude ", binary.read_text())
         self.assertEqual(apps.reported_version(binary), "2.1.277")
         with patch.object(apps, "latest_cli", return_value="2.1.277"):
             apps.install_cli("claude", "latest", self.root)
-        self.assertIn("unset DISABLE_AUTOUPDATER", binary.read_text())
+        self.assertTrue(binary.is_symlink())
+        self.assertEqual(binary.resolve(), native.resolve())
 
     def test_claude_upgrade_when_official_installer_preserves_custom_launcher(self):
         binary = self.root / ".local/bin/claude"

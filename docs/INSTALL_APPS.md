@@ -282,7 +282,7 @@ bash ~/dotfiles/install.sh --setup
 
 Codex는 [공식 설치 프로그램](https://learn.chatgpt.com/docs/codex/cli)에 해석한 버전을 `--release`로 전달한다. dotfiles가 `latest`를 조회하고 적용할 때마다 갱신한다.
 
-Claude Code는 [공식 설치 프로그램](https://code.claude.com/docs/en/setup)에 버전을 전달한다. dotfiles의 `~/.local/bin/claude` 실행기는 해당 버전의 공식 바이너리를 호출한다. 지정 버전에서는 `DISABLE_AUTOUPDATER=1`로 자동 업데이트를 끄고, `latest`로 돌아가면 다시 허용한다. 기존 npm·Homebrew 설치는 자동 제거하지 않는다. 다른 설치가 PATH에서 먼저 발견되면 경고를 출력하므로 `~/.local/bin`을 먼저 찾도록 설정한다.
+Claude Code는 [공식 설치 프로그램](https://code.claude.com/docs/en/setup)에 버전을 전달한다. `latest`에서는 `~/.local/bin/claude`를 공식 설치와 같이 버전 바이너리를 가리키는 심링크로 두어, 자동 업데이트가 심링크를 새 버전으로 옮길 수 있게 한다. 지정 버전에서는 같은 경로에 실행기를 두고 `DISABLE_AUTOUPDATER=1`로 자동 업데이트를 끈다. 실행기는 `exec -a claude`로 프로세스 이름을 `claude`로 유지한다. 그래야 Herdr처럼 프로세스 이름으로 에이전트를 감지하는 도구가 Claude를 인식한다. 기존 npm·Homebrew 설치는 자동 제거하지 않는다. 다른 설치가 PATH에서 먼저 발견되면 경고를 출력하므로 `~/.local/bin`을 먼저 찾도록 설정한다.
 
 ## Right Shift English 설치와 권한 허용
 

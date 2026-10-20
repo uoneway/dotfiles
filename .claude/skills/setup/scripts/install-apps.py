@@ -299,17 +299,22 @@ def install_cli(tool, requested, home, recipe=None):
                         publish_command(installed, binary.parent / name)
         if tool == "codex" and reported_version(binary) != version:
             raise RuntimeError(f"{binary} did not report requested version {version}")
-    # Claude's native updater must not silently replace an explicitly pinned
-    # version. A launcher refers to the versioned vendor binary, not itself.
+    # Latest uses the official symlink layout so Claude's native updater can
+    # repoint it. A pinned version uses a launcher that disables the updater
+    # and keeps argv[0] as "claude"; agent multiplexers such as Herdr detect
+    # Claude by argv[0], which would otherwise be the version number.
     if tool == "claude":
         target = home / ".local/share/claude/versions" / version
         if not target.is_file() or reported_version(target) != version:
             raise RuntimeError(f"Claude native binary missing: {target}")
-        setting = "export DISABLE_AUTOUPDATER=1" if requested != "latest" else "unset DISABLE_AUTOUPDATER"
-        launcher = f"#!/bin/sh\n{setting}\nexec {shlex.quote(str(target))} \"$@\"\n"
         temporary = binary.with_name(".claude-dotfiles-new")
-        temporary.write_text(launcher)
-        temporary.chmod(0o755)
+        temporary.unlink(missing_ok=True)
+        if requested == "latest":
+            temporary.symlink_to(target)
+        else:
+            temporary.write_text(f"#!/bin/bash\nexport DISABLE_AUTOUPDATER=1\n"
+                                 f"exec -a claude {shlex.quote(str(target))} \"$@\"\n")
+            temporary.chmod(0o755)
         temporary.replace(binary)
     print(f"[ok] {tool} {version} ({requested})", flush=True)
     active = shutil.which(tool)
