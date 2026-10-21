@@ -3,20 +3,16 @@
 import argparse
 import importlib.util
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
 import platform
-import plistlib
 import re
 import shlex
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
-import time
 import urllib.request
 from urllib.parse import urlparse
 
@@ -28,7 +24,6 @@ tomllib = machine_config.tomllib
 
 ROOT = Path(__file__).resolve().parents[4]
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?")
-LABEL = "local.karabiner.shift-english"  # Preserve the existing app/launchd identity.
 
 
 def validate_version(value):
@@ -45,7 +40,6 @@ def validate_recipe(name, entry):
         "official": {"adapter", "installer_url", "latest_urls", "latest_format", "tag_prefix"},
         "homebrew": {"package", "kind"},
         "script": {"path", "interpreter", "args"},
-        "right-shift-app": {"package"},
     }
     common = {"method", "version", "enabled", "platforms", "description"}
     if not isinstance(method, str) or method not in fields or set(entry) - common - fields[method]:
@@ -87,12 +81,6 @@ def validate_recipe(name, entry):
             raise ValueError(f"{name}: args must be an array of strings")
         if not any("{version}" in v for v in values):
             raise ValueError(f"{name}: args must pass {{version}} to the script")
-    else:
-        package = entry.get("package")
-        if not isinstance(package, str) or not package or Path(package).is_absolute() or ".." in Path(package).parts:
-            raise ValueError(f"{name}: package must be relative to dotfiles")
-        if entry.get("platforms") != ["Darwin"]:
-            raise ValueError(f"{name}: right-shift-app requires platforms=[Darwin]")
     return dict(entry, version=entry.get("version", "latest"))
 
 
@@ -323,137 +311,6 @@ def install_cli(tool, requested, home, recipe=None):
     return version
 
 
-def app_source(requested, root=ROOT, recipe=None):
-    recipe = recipe or default_recipe("right-shift-english")
-    package = root / recipe["package"]
-    version = (package / "latest").read_text().strip() if requested == "latest" else requested
-    validate_version(version)
-    source = package / version / "ShiftEnglish.swift"
-    if not source.is_file():
-        raise ValueError(f"Right Shift English {version} is not bundled in this dotfiles revision")
-    return version, source
-
-
-def app_plist(version):
-    return {"CFBundleName": "Right Shift English", "CFBundleDisplayName": "Right Shift English",
-            "CFBundleIdentifier": LABEL, "CFBundleExecutable": "shift-english",
-            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": version,
-            "CFBundleVersion": version, "LSMinimumSystemVersion": "13.0", "LSUIElement": True,
-            "NSPrincipalClass": "NSApplication"}
-
-
-def app_is_running(domain):
-    result = subprocess.run(["launchctl", "print", f"{domain}/{LABEL}"],
-                            capture_output=True, text=True)
-    return result.returncode == 0 and bool(re.search(r"^\s*state = running$", result.stdout, re.MULTILINE))
-
-
-def app_responds(runtime):
-    # The socket is bound only after the keyboard event tap starts successfully.
-    # launchd's short-lived "running" state alone also includes startup failures.
-    with tempfile.TemporaryDirectory(prefix="shift-english-test-", dir="/tmp") as temporary:
-        reply_path = str(Path(temporary) / "reply.sock")
-        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
-            client.settimeout(0.25)
-            try:
-                client.bind(reply_path)
-                client.sendto(json.dumps({"command": "status", "reply_to": reply_path}).encode(),
-                              str(runtime / "commands.sock"))
-                reply = json.loads(client.recv(65536))
-                return (isinstance(reply, dict) and reply.get("ok") is True
-                        and isinstance(reply.get("current"), str) and bool(reply["current"]))
-            except (OSError, ValueError):
-                return False
-
-
-def wait_for_app(domain, timeout=3, runtime=None):
-    runtime = runtime or Path.home() / ".local/share/karabiner-shift-english"
-    deadline = time.monotonic() + timeout
-    while True:
-        if app_is_running(domain) and app_responds(runtime):
-            return
-        if time.monotonic() >= deadline:
-            raise RuntimeError("Right Shift English did not stay running; check "
-                               "~/.local/share/karabiner-shift-english/daemon-error.log. "
-                               "The terminal permission check alone does not confirm app access.")
-        time.sleep(0.2)
-
-
-def install_app(requested, home, root=ROOT, recipe=None):
-    version, source = app_source(requested, root, recipe)
-    app = home / "Applications/Right Shift English.app"
-    binary = app / "Contents/MacOS/shift-english"
-    stamp = app / "Contents/Resources/dotfiles-source.sha256"
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    matching = (stamp.exists() and stamp.read_text().strip() == digest
-                and reported_version(binary) == version)
-    backup = app.with_name(app.name + ".previous")
-    if not matching and backup.exists():
-        raise RuntimeError(f"Previous app backup already exists: {backup}")
-    domain = f"gui/{os.getuid()}"
-    agent = home / "Library/LaunchAgents" / f"{LABEL}.plist"
-    runtime = home / ".local/share/karabiner-shift-english"
-    if not matching:
-        for command in ("swiftc", "codesign"):
-            if not shutil.which(command):
-                raise RuntimeError(f"{command} required; install Xcode Command Line Tools first")
-        app.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".right-shift-build-", dir=app.parent) as directory:
-            stage = Path(directory) / app.name
-            (stage / "Contents/MacOS").mkdir(parents=True)
-            (stage / "Contents/Resources").mkdir()
-            run(["swiftc", "-O", str(source), "-o", str(stage / "Contents/MacOS/shift-english")])
-            (stage / "Contents/Info.plist").write_bytes(plistlib.dumps(app_plist(version)))
-            (stage / "Contents/Resources/dotfiles-source.sha256").write_text(digest + "\n")
-            run(["codesign", "--force", "--sign", "-", "--identifier", LABEL, str(stage)])
-            run(["codesign", "--verify", "--deep", "--strict", str(stage)])
-            if reported_version(stage / "Contents/MacOS/shift-english") != version:
-                raise RuntimeError("Built app version mismatch")
-            # Complete compilation and verification before stopping a working app.
-            run(["launchctl", "bootout", f"{domain}/{LABEL}"], check=False)
-            if app.exists():
-                app.rename(backup)
-            try:
-                stage.rename(app)
-            except OSError:
-                if backup.exists():
-                    backup.rename(app)
-                raise
-            if backup.exists():
-                shutil.rmtree(backup)
-    runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
-    agent.parent.mkdir(parents=True, exist_ok=True)
-    data = {"Label": LABEL, "ProgramArguments": [str(binary)], "RunAtLoad": True,
-            "KeepAlive": {"Crashed": True}, "ThrottleInterval": 3,
-            "LimitLoadToSessionType": "Aqua", "ProcessType": "Interactive",
-            "StandardOutPath": str(runtime / "daemon.log"),
-            "StandardErrorPath": str(runtime / "daemon-error.log")}
-    changed = not agent.exists() or plistlib.loads(agent.read_bytes()) != data
-    agent.write_bytes(plistlib.dumps(data))
-    if changed:
-        run(["launchctl", "bootout", f"{domain}/{LABEL}"], check=False)
-    loaded = run(["launchctl", "print", f"{domain}/{LABEL}"], check=False).returncode == 0
-    if not loaded:
-        run(["launchctl", "bootstrap", domain, str(agent)])
-    permission = app_is_running(domain) or run([str(binary), "--check-permission"], check=False).returncode == 0
-    if permission:
-        run(["launchctl", "kickstart", f"{domain}/{LABEL}"])
-        try:
-            wait_for_app(domain, runtime=runtime)
-        except RuntimeError:
-            if "--request-permission" in source.read_text():
-                run(["open", "-n", str(app), "--args", "--request-permission"], check=False)
-            raise
-        print(f"[ok] right-shift-english {version} ({requested}); login startup registered", flush=True)
-    else:
-        # Older pinned releases do not implement the prompt helper.
-        if "--request-permission" in source.read_text():
-            run(["open", "-n", str(app), "--args", "--request-permission"], check=False)
-        print(f"[action] right-shift-english {version} installed; Accessibility permission required before use. "
-              "Enable Right Shift English in macOS System Settings, then run dotfiles install right-shift-english", flush=True)
-    return version
-
-
 def script_command(entry, version, root=ROOT):
     config = (root / "config").resolve()
     path = (config / entry["path"]).resolve()
@@ -482,8 +339,6 @@ def install_job(name, version, entry, home, root=ROOT):
     method = entry["method"]
     if method == "official":
         return install_cli(entry["adapter"], version, home, entry)
-    if method == "right-shift-app":
-        return install_app(version, home, root, entry)
     if method == "homebrew":
         return install_brew(name, version, entry)
     command = script_command(entry, version, root)
@@ -513,9 +368,7 @@ def main(argv=None, root=ROOT):
         # Check every local version before any installation starts.
         for tool, version in jobs:
             entry = data[tool]
-            if entry["method"] == "right-shift-app":
-                app_source(version, root=root, recipe=entry)
-            elif entry["method"] == "script":
+            if entry["method"] == "script":
                 script_command(entry, version, root)
         if args.dry_run:
             for tool, version in jobs:

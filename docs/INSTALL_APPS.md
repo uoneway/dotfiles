@@ -6,8 +6,7 @@
 
 - macOS 또는 Linux, Bash, Python 3.8 이상, 인터넷 연결이 필요하다.
 - 두 CLI의 공식 설치 프로그램은 `curl` 또는 `wget`을 사용한다.
-- Right Shift English는 macOS 13 이상과 Xcode Command Line Tools의 `swiftc`, `codesign`이 필요하다. 로그인한 사용자 세션에서 자동 실행을 등록한다. GUI 세션이 없는 Mac에서는 이 앱을 비활성화한다.
-- 로그인 정보와 접근성 권한은 동기화하지 않는다. 각 머신에서 로그인하고 권한을 허용한다.
+- 로그인 정보는 동기화하지 않는다. 각 머신에서 로그인한다.
 
 ## 설치할 프로그램과 버전 선택하기
 
@@ -30,7 +29,6 @@ dotfiles install codex,claude --latest
 ```bash
 dotfiles install codex --version codex=0.159.2
 dotfiles install codex,claude --version codex=0.159.2 --version claude=2.1.277
-dotfiles install right-shift-english --version right-shift-english=1.0.0
 ```
 
 `--latest`와 `--version`은 함께 사용할 수 없다. 지정 버전이 설치되어 있으면 CLI를 다시 다운로드하지 않는다. `latest`는 매 실행마다 공식 최신 버전을 조회하고, 설치 버전과 다를 때 업데이트한다. 지정 버전이 더 낮으면 해당 버전으로 전환한다.
@@ -45,7 +43,7 @@ dotfiles install right-shift-english --version right-shift-english=1.0.0
 | `config/installers/` | 개인 설정 | `script` 방식으로 선택하는 개인 설치 스크립트 |
 | `templates/apps.json` | 공용 dotfiles | 개인 앱 추가와 부분 덮어쓰기 예시. 런타임 카탈로그로 읽지 않음 |
 
-공용 카탈로그에는 Codex, Claude, Right Shift English와 Homebrew로 설치하는 ripgrep, jq, fd, fzf, git, tmux, neovim, Visual Studio Code가 있다. Homebrew 설치 여부는 머신의 목록에서 선택한다.
+공용 카탈로그에는 Codex, Claude와 Homebrew로 설치하는 ripgrep, jq, fd, fzf, git, tmux, neovim, Visual Studio Code가 있다. Homebrew 설치 여부는 머신의 목록에서 선택한다.
 
 병합한 전체 카탈로그와 이번 머신의 설치 목록을 각각 확인한다.
 
@@ -99,7 +97,7 @@ dotfiles install --dry-run
 ```toml
 # 이름을 지정하지 않은 로컬 실행 전용
 [local]
-apps = ["codex", "claude", "right-shift-english"]
+apps = ["codex", "claude"]
 
 # 등록된 머신이 생략한 필드에 적용하는 공통 기본 설정
 [defaults]
@@ -165,7 +163,7 @@ dotfiles install codex --version codex=0.159.2
 
 | 필드 | 필수 여부 | 기본값과 의미 |
 |---|---|---|
-| `method` | 필수 | `official`, `homebrew`, `script`, `right-shift-app` 중 선택 |
+| `method` | 필수 | `official`, `homebrew`, `script` 중 선택 |
 | `version` | 선택 | `latest`. 지정 버전은 `x.y.z` 또는 `x.y.z-preview.1` 형식 |
 | `enabled` | 선택 | `true`. `false`면 모든 설치 명령에서 제외 |
 | `platforms` | 선택 | `["Darwin", "Linux"]`. 대상 OS 목록 |
@@ -238,23 +236,6 @@ cp templates/installers/example.sh config/installers/my-tool.sh
 
 최신 버전 조회, 다운로드, 설치 결과 확인, 반복 실행 시 처리, 버전 고정은 개인 스크립트가 담당한다. 실패하면 0이 아닌 종료 코드를 반환해야 한다. 공용 설치 코드는 이 실패를 전달한다. 설정 파일과 스크립트가 커밋되면 다른 머신에서도 같은 방법으로 실행한다. 셸 초기화 파일을 직접 수정하는 설치 스크립트는 사용하지 않는다.
 
-### Right Shift English 소스 빌드
-
-`right-shift-app`은 Right Shift English를 빌드하고 로그인 실행을 등록하는 전용 방식이다. `package`에는 dotfiles 기준 상대 소스 디렉터리를 적는다. `platforms`는 반드시 `["Darwin"]`으로 지정한다.
-
-```json
-{
-  "right-shift-english": {
-    "method": "right-shift-app",
-    "version": "latest",
-    "package": "packages/right-shift-english",
-    "platforms": ["Darwin"]
-  }
-}
-```
-
-공용 저장소의 버전별 Swift 소스와 앱 빌드 로직을 재사용한다. 개인 설정에는 설치 여부, 버전, 사용할 소스 디렉터리를 둔다.
-
 ## 설정 적용과 함께 설치하기
 
 ```bash
@@ -283,28 +264,3 @@ bash ~/dotfiles/install.sh --setup
 Codex는 [공식 설치 프로그램](https://learn.chatgpt.com/docs/codex/cli)에 해석한 버전을 `--release`로 전달한다. dotfiles가 `latest`를 조회하고 적용할 때마다 갱신한다.
 
 Claude Code는 [공식 설치 프로그램](https://code.claude.com/docs/en/setup)에 버전을 전달한다. `latest`에서는 `~/.local/bin/claude`를 공식 설치와 같이 버전 바이너리를 가리키는 심링크로 두어, 자동 업데이트가 심링크를 새 버전으로 옮길 수 있게 한다. 지정 버전에서는 같은 경로에 실행기를 두고 `DISABLE_AUTOUPDATER=1`로 자동 업데이트를 끈다. 실행기는 `exec -a claude`로 프로세스 이름을 `claude`로 유지한다. 그래야 Herdr처럼 프로세스 이름으로 에이전트를 감지하는 도구가 Claude를 인식한다. 기존 npm·Homebrew 설치는 자동 제거하지 않는다. 다른 설치가 PATH에서 먼저 발견되면 경고를 출력하므로 `~/.local/bin`을 먼저 찾도록 설정한다.
-
-## Right Shift English 설치와 권한 허용
-
-Right Shift English의 `latest`는 **현재 dotfiles 커밋에 포함된 최신 앱 소스 버전**이다. 설정의 `package` 디렉터리 안에서 `latest` 파일이 버전을 가리키고, 각 버전 디렉터리에 `ShiftEnglish.swift` 소스를 보관한다. 첫 버전은 `1.0.0`이다. 외부 앱 릴리스를 조회하는 방식은 아직 사용하지 않는다. 새 버전을 추가할 때는 이전 버전의 소스를 수정하지 않고 새 디렉터리와 `latest`를 커밋한다. 포함되지 않은 버전을 요청하면 설치 전에 실패한다.
-
-설치 프로그램은 대상 Mac에서 앱을 빌드하고 서명을 검증한 뒤 `~/Applications/Right Shift English.app`에 설치한다. 빌드 실패 시 기존 앱을 유지한다. 같은 버전과 소스가 설치되어 있으면 다시 빌드하지 않는다. 앱과 자동 실행 등록은 로컬에 남긴다.
-
-앱 설치 후 macOS의 **시스템 설정 → 개인정보 보호 및 보안 → 기기 제어 및 데이터 접근**에서 Right Shift English를 허용한다. OS 버전에 따라 이 항목은 **손쉬운 사용**으로 표시된다. 허용한 뒤 다음 명령을 다시 실행한다.
-
-```bash
-dotfiles install right-shift-english
-```
-
-로컬 서명으로 빌드한 앱은 업데이트 시 접근성 등록을 다시 허용해야 할 수 있다. 권한이 없을 때 설치 완료와 실행 가능 상태를 구분해 안내한다. 자동 실행 등록은 권한 오류로 종료한 프로세스를 계속 재시작하지 않고, 비정상 종료 시에만 재시작한다.
-
-앱은 한글 두벌식과 ABC 입력기를 사용한다. 오른쪽 Shift 기능은 Karabiner 없이 동작한다. 현재 Caps Lock·오른쪽 Option의 한·영 전환은 기존 Karabiner의 F18 매핑을 사용한다. 입력기 상태는 F18 전환을 기준으로 유지하므로 메뉴 막대에서 바꾸면 저장 상태로 돌아갈 수 있다.
-
-## 검증 실행하기
-
-```bash
-python3 -m unittest discover -s tests -v
-bash -n bin/dotfiles install.sh
-```
-
-테스트는 CLI 설치 호출을 대체하고, Mac에서는 임시 폴더에 실제 앱을 빌드해 버전과 서명을 검증한다. 사용자 앱이나 CLI를 교체하지 않고, 자동 실행 호출도 대체한다.

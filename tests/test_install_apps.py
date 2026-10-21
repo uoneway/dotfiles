@@ -1,11 +1,7 @@
 import argparse
-import contextlib
-import io
 import importlib.util
 import json
 from pathlib import Path
-import platform
-import plistlib
 import shlex
 import subprocess
 import os
@@ -14,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-TOOLS = ("codex", "claude", "right-shift-english")
+TOOLS = ("codex", "claude")
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("install_apps", ROOT / ".claude/skills/setup/scripts/install-apps.py")
 apps = importlib.util.module_from_spec(spec)
@@ -51,11 +47,6 @@ class InstallerTests(unittest.TestCase):
     def test_default_latest_on_mac(self):
         self.assertEqual(apps.plan(args(), "Darwin", self.root), [(t, "latest") for t in TOOLS])
 
-    def test_default_skips_app_on_linux(self):
-        self.assertEqual(apps.plan(args(), "Linux", self.root), [(t, "latest") for t in TOOLS[:2]])
-
-    def test_explicit_app_fails_on_linux(self):
-        with self.assertRaises(ValueError): apps.plan(args("right-shift-english"), "Linux", self.root)
 
     def test_configured_pins_and_disabled_tools(self):
         self.config({"codex": "0.159.2", "claude": False})
@@ -184,16 +175,6 @@ class InstallerTests(unittest.TestCase):
             apps.install_cli("claude", "2.1.280", self.root)
         self.assertEqual(apps.reported_version(binary), "2.1.280")
 
-    def test_unknown_app_release_fails_before_install(self):
-        with self.assertRaises(ValueError): apps.app_source("9.9.9")
-        version, source = apps.app_source("latest")
-        self.assertEqual(version, "1.0.5")
-        self.assertTrue(source.exists())
-
-    def test_missing_app_release_stops_entire_plan_before_cli_install(self):
-        with patch.object(apps.platform, "system", return_value="Darwin"), patch.object(apps, "install_cli") as install:
-            self.assertEqual(apps.main(["codex,right-shift-english", "--version", "right-shift-english=9.9.9"]), 1)
-            install.assert_not_called()
 
     def test_main_dispatches_selected_policy(self):
         with patch.object(apps.Path, "home", return_value=self.root), patch.object(apps, "install_cli") as install:
@@ -261,8 +242,6 @@ class InstallerTests(unittest.TestCase):
                    self.recipe(path="x.sh", args=[]), self.recipe(path="x.sh", interpreter="zsh"),
                    self.recipe("unknown"), self.recipe("homebrew", package="--help"),
                    self.recipe("homebrew", package="ripgrep", kind="bad"),
-                   self.recipe("right-shift-app", package="../other", platforms=["Darwin"]),
-                   self.recipe("right-shift-app", package="packages/app"),
                    dict(apps.default_recipe("codex"), installer_url="http://example.com/install.sh"),
                    dict(apps.default_recipe("codex"), latest_urls=[])]
         for entry in entries:
@@ -307,13 +286,6 @@ class InstallerTests(unittest.TestCase):
             apps.install_job("codex", "1.2.3", entry, self.root)
             fetch.assert_called_once_with("https://example.com/installer")
 
-    def test_custom_app_package_path(self):
-        package = self.root / "custom/app/1.2.3"
-        package.mkdir(parents=True)
-        (package.parent / "latest").write_text("1.2.3")
-        (package / "ShiftEnglish.swift").write_text("fixture")
-        entry = self.recipe("right-shift-app", package="custom/app", platforms=["Darwin"])
-        self.assertEqual(apps.app_source("latest", self.root, entry), ("1.2.3", package / "ShiftEnglish.swift"))
 
     def test_brew_install_upgrade_and_missing_dependency(self):
         for kind in ("formula", "cask"):
@@ -396,7 +368,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(apps.plan(args(), "Darwin", self.root), [])
 
     def test_machine_selection_overrides_defaults_and_empty_stops_install(self):
-        self.machines('[local]\napps = ["right-shift-english"]\n[defaults]\napps = ["codex", "claude"]\n[machines.server]\napps = ["codex", "ripgrep"]\n[machines.empty]\napps = []\n[machines.inherit]\nhost = "example"\n')
+        self.machines('[local]\napps = ["jq"]\n[defaults]\napps = ["codex", "claude"]\n[machines.server]\napps = ["codex", "ripgrep"]\n[machines.empty]\napps = []\n[machines.inherit]\nhost = "example"\n')
         self.assertEqual(apps.plan(args(machine="server"), "Linux", self.root), [("codex", "latest"), ("ripgrep", "latest")])
         self.assertEqual(apps.plan(args(machine="empty"), "Darwin", self.root), [])
         self.assertEqual(apps.plan(args(machine="inherit"), "Linux", self.root), [("codex", "latest"), ("claude", "latest")])
@@ -417,8 +389,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(apps.plan(args(), "Linux", self.root), [("codex", "latest"), ("jq", "latest")])
 
     def test_local_and_registered_defaults_are_independent(self):
-        self.machines('[local]\napps = ["right-shift-english"]\n[defaults]\napps = ["codex", "claude"]\n[machines.inherit]\nhost = "example"\n')
-        self.assertEqual(apps.plan(args(), "Darwin", self.root), [("right-shift-english", "latest")])
+        self.machines('[local]\napps = ["jq"]\n[defaults]\napps = ["codex", "claude"]\n[machines.inherit]\nhost = "example"\n')
+        self.assertEqual(apps.plan(args(), "Darwin", self.root), [("jq", "latest")])
         self.assertEqual(apps.plan(args(machine="inherit"), "Linux", self.root), [("codex", "latest"), ("claude", "latest")])
         self.machines('[defaults]\napps = ["codex"]\n[machines.inherit]\nhost = "example"\n')
         self.assertEqual(apps.plan(args(), "Darwin", self.root), [])
@@ -607,62 +579,6 @@ class InstallerTests(unittest.TestCase):
                         '[defaults]\nagents_addition = "../outside.md"', '[defaults]\ntransport = "bad"'):
             self.machines(content)
             with self.subTest(content=content), self.assertRaises(ValueError): apps.machine_config.load(self.root)
-
-    @unittest.skipUnless(platform.system() == "Darwin", "macOS app build")
-    def test_real_app_build_install_and_repeat_without_rebuilding(self):
-        real_run = apps.run
-        commands = []
-        def run(command, env=None, check=True):
-            commands.append(command)
-            if command[0] == "open" or command[-1] in ("--check-permission", "--request-permission"):
-                return subprocess.CompletedProcess(command, 2)
-            if command[0] == "launchctl":
-                return subprocess.CompletedProcess(command, 1 if command[1] == "print" else 0)
-            return real_run(command, env=env, check=check)
-        with patch.object(apps, "run", side_effect=run), patch.object(apps, "app_is_running", return_value=False):
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                apps.install_app("latest", self.root)
-            self.assertIn(["open", "-n", str(self.root / "Applications/Right Shift English.app"), "--args", "--request-permission"], commands)
-            self.assertIn("[action]", output.getvalue())
-            self.assertNotIn("[ok] right-shift-english", output.getvalue())
-            app = self.root / "Applications/Right Shift English.app"
-            self.assertEqual(apps.reported_version(app / "Contents/MacOS/shift-english"), "1.0.5")
-            agent = plistlib.loads((self.root / f"Library/LaunchAgents/{apps.LABEL}.plist").read_bytes())
-            self.assertEqual(agent["KeepAlive"], {"Crashed": True})
-            self.assertEqual(agent["ProgramArguments"], [str(app / "Contents/MacOS/shift-english")])
-            commands.clear()
-            apps.install_app("1.0.5", self.root)
-            self.assertFalse(any(c[0] in ("swiftc", "codesign") for c in commands))
-
-    def test_startup_failure_does_not_pass_health_check(self):
-        result = subprocess.CompletedProcess([], 0, stdout="state = not running\n")
-        with patch.object(apps.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(RuntimeError, "did not stay running"):
-                apps.wait_for_app("gui/501", timeout=0)
-
-    def test_running_app_passes_health_check(self):
-        result = subprocess.CompletedProcess([], 0, stdout="\tstate = running\n")
-        with patch.object(apps.subprocess, "run", return_value=result), \
-             patch.object(apps, "app_responds", return_value=True, create=True):
-            apps.wait_for_app("gui/501", timeout=0)
-
-    def test_running_without_ready_socket_does_not_pass_health_check(self):
-        # launchd briefly reports running before the event tap fails permission.
-        result = subprocess.CompletedProcess([], 0, stdout="\tstate = running\n")
-        with patch.object(apps.subprocess, "run", return_value=result), \
-             patch.object(apps, "app_responds", return_value=False, create=True):
-            with self.assertRaisesRegex(RuntimeError, "did not stay running"):
-                apps.wait_for_app("gui/501", timeout=0)
-
-    def test_build_failure_preserves_existing_app(self):
-        app = self.root / "Applications/Right Shift English.app"
-        app.mkdir(parents=True)
-        sentinel = app / "keep-me"
-        sentinel.write_text("working app")
-        with patch.object(apps.shutil, "which", return_value="/bin/fixture"), patch.object(apps, "run", side_effect=subprocess.CalledProcessError(1, "swiftc")):
-            with self.assertRaises(subprocess.CalledProcessError): apps.install_app("1.0.0", self.root)
-        self.assertEqual(sentinel.read_text(), "working app")
 
 
 if __name__ == "__main__":

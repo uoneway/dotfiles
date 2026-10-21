@@ -21,14 +21,6 @@
     ],
     "latest_format": "text"
   },
-  "right-shift-english": {
-    "method": "right-shift-app",
-    "version": "latest",
-    "platforms": [
-      "Darwin"
-    ],
-    "package": "packages/right-shift-english"
-  },
   "ripgrep": {
     "method": "homebrew",
     "package": "ripgrep",

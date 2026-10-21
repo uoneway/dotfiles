@@ -31,7 +31,7 @@
 # 이름 없는 로컬 실행 전용. [defaults]를 상속하지 않는다.
 # 앱이 카탈로그에 있어도 이 목록이나 머신별 apps에서 선택해야 설치한다.
 [local]
-apps = ["codex", "claude", "right-shift-english"]
+apps = ["codex", "claude"]
 
 # 등록된 머신의 공통 기본 설정. 머신에 생략한 필드만 상속한다.
 # components, apps, transport, path, agents_addition, zsh_addition을 지정할 수 있다.
