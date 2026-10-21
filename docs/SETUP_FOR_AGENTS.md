@@ -73,7 +73,7 @@ For roaming laptops that sleep or change networks, do not register the laptop in
 dotfiles pull           # fast-forward both repos, then apply and verify locally
 ```
 
-`dotfiles pull` aborts if either repository has uncommitted changes or cannot be fast-forwarded. It does not require inbound SSH access to the laptop.
+`dotfiles pull` keeps uncommitted local changes when they do not touch files changed by the incoming commits. It aborts before updating either repository if local changes overlap incoming changes or a repository cannot be fast-forwarded. It does not require inbound SSH access to the laptop.
 
 ## Troubleshooting
 

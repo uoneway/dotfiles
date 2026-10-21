@@ -187,23 +187,41 @@ cmd_pull() {
     return 1
   fi
 
-  # pull이 일부 로컬 변경을 그대로 둔 채 성공하는 경우를 막는다.
-  # 이동형 머신도 커밋된 상태만 적용한다는 원칙은 push 대상과 같다.
-  local repo
+  # 로컬 변경은 들어오는 커밋과 겹치지 않을 때만 그대로 둔다.
+  # 한 저장소만 갱신된 채 멈추지 않도록 두 저장소를 모두 검사한 뒤 갱신한다.
+  local repo incoming changed overlap
+  echo "--- fetching from hub ---"
   for repo in "$DOTFILES" "$CONFIG"; do
     if ! git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       echo "[abort] git repository not found: $repo" >&2
       return 1
     fi
-    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
-      echo "[abort] uncommitted changes in $repo — 커밋하거나 정리한 후 pull 하세요" >&2
+    if ! git -C "$repo" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+      echo "[abort] $repo 의 현재 브랜치에 upstream이 없습니다" >&2
+      return 1
+    fi
+    git -C "$repo" fetch --quiet || { echo "[error] fetch 실패: $repo" >&2; return 1; }
+    # 로컬이 앞서기만 했으면 받을 커밋이 없으므로 그대로 둔다.
+    git -C "$repo" merge-base --is-ancestor '@{u}' HEAD 2>/dev/null && continue
+    if ! git -C "$repo" merge-base --is-ancestor HEAD '@{u}' 2>/dev/null; then
+      echo "[abort] $repo 를 fast-forward 할 수 없습니다 (로컬 커밋이 원격과 갈라짐)" >&2
+      return 1
+    fi
+    incoming="$(git -C "$repo" diff --name-only HEAD '@{u}')"
+    changed="$( { git -C "$repo" diff --name-only HEAD; git -C "$repo" ls-files --others --exclude-standard; } | sort -u)"
+    overlap="$(comm -12 <(echo "$incoming" | sort -u) <(echo "$changed"))"
+    if [ -n "$overlap" ]; then
+      echo "[abort] $repo 의 로컬 변경이 들어오는 커밋과 겹칩니다 — 커밋하거나 정리한 후 pull 하세요" >&2
+      echo "$overlap" | sed 's/^/    /' >&2
       return 1
     fi
   done
 
   echo "--- pulling from hub ---"
-  git -C "$DOTFILES" pull --ff-only || { echo "[error] framework pull 실패"; return 1; }
-  git -C "$CONFIG" pull --ff-only || { echo "[error] config pull 실패"; return 1; }
+  for repo in "$DOTFILES" "$CONFIG"; do
+    git -C "$repo" merge --ff-only --quiet '@{u}' || { echo "[error] pull 실패: $repo"; return 1; }
+    [ -n "$(git -C "$repo" status --porcelain)" ] && echo "[keep] $repo 의 로컬 변경을 유지한 채 갱신했습니다"
+  done
 
   echo ""
   # framework가 갱신됐을 수 있으므로 현재 프로세스의 함수 대신 새 CLI를 실행한다.
