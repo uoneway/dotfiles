@@ -108,7 +108,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 
 `config/keyboard/macos.json`이 있으면 `dotfiles apply`가 macOS 사용자 환경설정에 적용한다. `dotfiles pull`도 두 저장소를 갱신한 뒤 같은 설정을 적용한다. Linux에서는 건너뛰며 Karabiner 설치 여부와는 무관하다. `verify`는 값을 읽어 확인하고, 설정이 달라도 변경하지 않는다.
 
-지원 키는 `TSMLanguageIndicatorEnabled`(정수 `0` 또는 `1`), `InitialKeyRepeat`(정수 `11`), `KeyRepeat`(정수 `1`)이다. 입력 소스 표시 기능을 끄면 연속 한영 전환 지연을 줄일 수 있으며 다른 형태의 전환 UI는 나타날 수 있다. 키 반복 설정은 길게 누른 키의 반복 시작 대기 시간과 반복 속도를 높인다. 변경은 `dotfiles apply`로 적용하며, 전체 반영에는 로그아웃 후 로그인이 필요할 수 있다. 원복은 원하는 키를 `macos.json`에서 제거한 뒤 `defaults delete -g <키>`를 각 Mac에서 실행한다. 설정 파일에서 키를 제거해도 기존 시스템 값은 자동 삭제하지 않는다.
+지원 키는 `TSMLanguageIndicatorEnabled`(정수 `0` 또는 `1`), `InitialKeyRepeat`(정수 `11` 또는 `15`), `KeyRepeat`(정수 `1` 또는 `3`)이다. 입력 소스 표시 기능을 끄면 연속 한영 전환 지연을 줄일 수 있으며 다른 형태의 전환 UI는 나타날 수 있다. 키 반복 설정은 길게 누른 키의 반복 시작 대기 시간과 반복 속도를 높인다. 변경은 `dotfiles apply`로 적용하며, 전체 반영에는 로그아웃 후 로그인이 필요할 수 있다. 원복은 원하는 키를 `macos.json`에서 제거한 뒤 `defaults delete -g <키>`를 각 Mac에서 실행한다. 설정 파일에서 키를 제거해도 기존 시스템 값은 자동 삭제하지 않는다.
 
 ### Karabiner-Elements (macOS)
 

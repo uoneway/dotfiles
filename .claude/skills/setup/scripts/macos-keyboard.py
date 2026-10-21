@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / "config/keyboard/macos.json"
 SETTINGS = {
     "TSMLanguageIndicatorEnabled": (0, 1),
-    "InitialKeyRepeat": (11,),
-    "KeyRepeat": (1,),
+    "InitialKeyRepeat": (11, 15),
+    "KeyRepeat": (1, 3),
 }
 
 
