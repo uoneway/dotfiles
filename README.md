@@ -190,7 +190,7 @@ dotfiles/                              # public: 프레임워크
 
 규칙:
 
-- **배포되는 것은 항상 커밋** — 로컬이 dirty면 push가 중단됩니다
+- **배포되는 것은 항상 커밋** — 로컬이 dirty면 경고 후 진행하며, 미커밋 변경은 배포되지 않습니다
 - **원격이 dirty면 건너뛰고 보고** — `--force`로만 덮어씁니다
 - **secrets는 배포하지 않음** — push 전 secret 스캔이 돌고, 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둡니다
 - GitHub 접근이 안 되는 머신은 `transport = "direct"`(ssh 직접 push)로 지정

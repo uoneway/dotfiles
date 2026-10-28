@@ -3,7 +3,7 @@
 #
 # 제어 머신은 등록된 머신들에 push하고, 이동형 머신은 허브에서 pull한다.
 # 배포 = git pull(hub) 또는 git push(direct) + 원격 apply + verify. 자세한 규칙:
-#   - 배포되는 것은 항상 커밋이다 (로컬이 dirty면 push를 중단)
+#   - 배포되는 것은 항상 커밋이다 (로컬이 dirty면 경고 후 진행)
 #   - 원격이 dirty면 건너뛰고 보고한다 (--force로만 덮어씀)
 #
 # Usage:
@@ -262,15 +262,13 @@ cmd_push() {
     fi
   fi
 
-  # 1) 로컬은 커밋되어 있어야 한다 (배포 = 커밋 원칙)
-  local repo dirty_abort=false
+  # 1) 미커밋 변경은 경고만 한다 — 실제 배포 대상은 HEAD 커밋
+  local repo
   for repo in "$DOTFILES" "$CONFIG"; do
     if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
-      echo "[abort] uncommitted changes in $repo — 커밋 후 push 하세요"
-      dirty_abort=true
+      echo "[warn] uncommitted changes in $repo — 미커밋 변경은 제외하고 HEAD 커밋만 배포합니다" >&2
     fi
   done
-  $dirty_abort && return 1
 
   # 2) 허브(origin)로 push
   echo "--- pushing to hub ---"
