@@ -210,7 +210,7 @@ bash .claude/skills/setup/scripts/install-manifest-skills.sh
 | 분류 | 판단 기준 | 예시 |
 |------|----------|------|
 | **공통** | OS에 무관하게 동작하는 설정 | alias, 환경변수(`PATH`에 OS 특정 경로 없는 것), 순수 셸 함수, 프롬프트 설정 |
-| **OS별** | OS에 따라 경로·명령어·패키지 관리자가 다른 설정 | Homebrew(`/opt/homebrew/`), `gls` vs `ls`, conda 경로(`miniforge3` vs `miniconda3`), pnpm 경로(`~/Library/`) |
+| **OS별** | OS에 따라 경로·명령어·패키지 관리자가 다른 설정 | Homebrew(`/opt/homebrew/`), `gls` vs `ls`, pnpm 경로(`~/Library/`) |
 | **프레임워크 의존** | Oh My Zsh, nvm 등 특정 도구가 설치되어 있어야 동작하는 설정 | `source $ZSH/oh-my-zsh.sh`, `plugins=(...)`, `NVM_DIR` |
 
 ### 5-2. 환경 유효성 검증
@@ -220,7 +220,7 @@ bash .claude/skills/setup/scripts/install-manifest-skills.sh
 검증 항목:
 
 - **참조 도구 존재 여부**: 설정에 등장하는 명령어/도구가 실제 설치되어 있는지 (`command -v`로 확인)
-  - 예: `gls` alias가 있지만 coreutils 미설치, `conda` 설정이 있지만 conda 미설치
+  - 예: `gls` alias가 있지만 coreutils 미설치
 - **경로 유효성**: 설정에 하드코딩된 경로가 실제 존재하는지
   - 예: `/opt/homebrew/opt/mysql-client@8.0/bin` 경로가 없는 경우
 - **프레임워크 의존성**: Oh My Zsh, nvm, p10k 등이 필요하지만 미설치인 경우
@@ -233,7 +233,6 @@ bash .claude/skills/setup/scripts/install-manifest-skills.sh
 
 [ok]    alias gs='git status'          — git 설치 확인됨
 [ok]    Oh My Zsh 플러그인 (git, z)     — Oh My Zsh 설치 확인됨
-[warn]  conda activate (miniforge3)    — miniforge3 미설치 (현재 OS: Linux)
 [warn]  gls 사용 (lslh_pretty)          — coreutils 미설치
 [fail]  Oh My Zsh                      — 미설치 (셸 설정 전체가 의존)
 ```
