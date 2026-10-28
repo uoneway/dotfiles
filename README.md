@@ -51,7 +51,7 @@ bash ~/dotfiles/bin/dotfiles apply
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
 | `~/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. `machines.toml`에 `agents_addition`이 있으면 공통 파일과 추가 파일을 합친 결과에 링크 |
-| `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — `settings.base.json`의 키만 교체 |
+| `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — 현재 base 키 교체 + 삭제된 관리 키의 조건부 제거 |
 | 플러그인 (`enabledPlugins`, `extraKnownMarketplaces`, `pluginConfigs`) | ✅ | 선언과 설정이 base로 동기화 → 각 머신이 자동 설치 |
 | `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Claude 전용) |
 | `agents/` (서브에이전트) | ✅ | 심링크 |
@@ -86,7 +86,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 
 *✅\* = 지원되지만 현재 config에 없음 — 파일을 config에 추가하는 순간부터 동기화됨.*
 
-TOML 병합은 머신별로 마지막 적용 base를 저장합니다. 이후 base에서 키를 삭제하면 로컬 값이 이전 base 값과 같을 때만 제거하고, 로컬에서 바뀐 값은 보존하며 `[conflict]`로 알립니다. 최초 적용에는 과거 관리 이력을 추정하지 않습니다. 현재 base에 있는 키는 기존처럼 base 값으로 덮어씁니다. 스냅샷 위치, 확인 명령, 기존 설정 마이그레이션은 [TOML 삭제 처리 안내](docs/SETUP_FOR_AGENTS.md#retiring-shared-toml-keys)를 참고하세요. JSON 병합에는 이 삭제 규칙이 적용되지 않습니다.
+TOML과 Claude Code JSON 병합은 머신별로 마지막 적용 base를 저장합니다. 이후 base에서 키를 삭제하면 로컬 값이 이전 base 값과 같을 때만 제거하고, 로컬에서 바뀐 값은 보존하며 `[conflict]`로 알립니다. 최초 적용에는 과거 관리 이력을 추정하지 않습니다. 현재 base에 있는 키는 기존처럼 base 값으로 덮어씁니다. 스냅샷 위치, 확인 명령, 기존 설정 마이그레이션은 [관리 키 삭제 처리 안내](docs/SETUP_FOR_AGENTS.md#retiring-shared-settings)를 참고하세요. 배열은 전체 값을 한 단위로 비교합니다. 셸 심링크와 macOS 시스템 설정은 이 병합기에 포함되지 않습니다.
 
 ### 셸 (`~/.zshrc`)
 

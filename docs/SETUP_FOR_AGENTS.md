@@ -55,10 +55,11 @@ source ~/.zshrc                                          # 7. apply
 
 Never edit `~/.claude/settings.json` / `~/.codex/config.toml` expecting the change to sync — shared intent goes in the `*.base.*` files in `config/`; machine-local things stay in the live file.
 
-### Retiring shared TOML keys
+### Retiring shared settings
 
-`merge-toml.sh` saves the last successfully applied base per target under
-`${XDG_STATE_HOME:-~/.local/state}/dotfiles/toml/`. `DOTFILES_STATE_DIR` can override
+`merge-settings.py` powers both `merge-toml.sh` and `merge-claude-settings.sh`.
+It saves the last successfully applied base per target under
+`${XDG_STATE_HOME:-~/.local/state}/dotfiles/{toml,json}/`. `DOTFILES_STATE_DIR` can override
 the dotfiles state directory. These snapshots are local to each machine; do not
 copy them between machines or commit them. They contain base values and use mode 0600.
 
@@ -84,10 +85,15 @@ copy them between machines or commit them. They contain base values and use mode
   the snapshot is written last. If saving the snapshot fails after replacement,
   repair the state directory and retry; do not delete the old snapshot.
 
-Bases retain the existing restriction to single-line assignments and ordinary
+TOML bases retain the existing restriction to single-line assignments and ordinary
 tables. Unsupported renderings fail validation without updating the target or
-snapshot. Empty table headers can remain after key removal. JSON settings merges
-do not use this deletion mechanism.
+snapshot. Empty TOML table headers can remain after key removal. JSON objects
+merge recursively; arrays and scalars are owned as whole values. Removing an item
+from a still-managed array follows the existing base-wins policy; retiring the
+whole array uses the old-value comparison. Empty JSON parents left by retired keys
+are pruned only when absent from the current base; local siblings remain.
+Claude marketplace paths are expanded before saving the snapshot, so deletion
+compares against the actual absolute path applied on that machine.
 
 For a focused Codex preview and apply, use:
 
@@ -98,6 +104,20 @@ bash ~/dotfiles/.claude/skills/setup/scripts/merge-codex-config.sh
 
 Review base drift before applying: this applies all current Codex base keys as
 well as retired-key migrations, and can reset a locally changed managed setting.
+For Claude Code, use `merge-claude-settings.sh --check` and then
+`merge-claude-settings.sh` in the same scripts directory. Check is read-only even
+when the target is missing or a symlink. An unchanged file retains its formatting.
+
+Shell source files use symlinks, so edits and deletions inside a shared file already
+propagate; do not parse shell commands into managed keys or touch local/secrets
+files. Removing an entire source file can leave a dangling symlink and requires a
+separate link-ownership check, not this settings merger.
+
+macOS preferences keep explicit per-key removal. Deleting a `defaults` override
+returns to the OS/domain fallback, which may differ from the user's value before
+management. Do not translate removal from base into automatic `defaults delete`;
+a future restore mechanism must record the original typed value and its absence,
+and define restore-versus-default behavior before touching system preferences.
 
 ## Multi-machine deploy
 
