@@ -71,7 +71,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
 | `~/.codex/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. 머신별 추가 파일을 선택하면 Claude와 같은 합성 결과에 링크 |
-| `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, commit_attribution, `[tui]`, `[features]`, network_access | ✅ | **병합** — `config.base.toml`의 키만 교체 |
+| `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, `[tui]`, `[features]`, network_access | ✅ | **병합** — 현재 base 키 교체 + 이전 base에서 삭제된 키의 조건부 제거 |
 | `rules/` (실행 정책) | ✅ | 심링크 |
 | `~/.agents/skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용). Codex의 user-level 스킬 경로이며, 예전 `~/.codex/skills`에 남은 config 스킬은 apply가 정리 |
 | `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신. 자작 스킬 심링크와 같은 디렉토리에 공존 |
@@ -85,6 +85,8 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | `<profile>.config.toml` (프로파일) | 후보 | 현재 미사용 — 쓰게 되면 base 패턴으로 추가 |
 
 *✅\* = 지원되지만 현재 config에 없음 — 파일을 config에 추가하는 순간부터 동기화됨.*
+
+TOML 병합은 머신별로 마지막 적용 base를 저장합니다. 이후 base에서 키를 삭제하면 로컬 값이 이전 base 값과 같을 때만 제거하고, 로컬에서 바뀐 값은 보존하며 `[conflict]`로 알립니다. 최초 적용에는 과거 관리 이력을 추정하지 않습니다. 현재 base에 있는 키는 기존처럼 base 값으로 덮어씁니다. 스냅샷 위치, 확인 명령, 기존 설정 마이그레이션은 [TOML 삭제 처리 안내](docs/SETUP_FOR_AGENTS.md#retiring-shared-toml-keys)를 참고하세요. JSON 병합에는 이 삭제 규칙이 적용되지 않습니다.
 
 ### 셸 (`~/.zshrc`)
 

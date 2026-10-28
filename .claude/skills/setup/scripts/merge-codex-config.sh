@@ -3,4 +3,5 @@
 set -e
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 exec bash "$(dirname "$0")/merge-toml.sh" \
-  "$DOTFILES/config/ai/codex/config.base.toml" "$HOME/.codex/config.toml" "$@"
+  "$DOTFILES/config/ai/codex/config.base.toml" "$HOME/.codex/config.toml" \
+  --migrations "$(dirname "$0")/codex-toml-migrations.json" "$@"

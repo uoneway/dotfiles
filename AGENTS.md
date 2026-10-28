@@ -21,7 +21,7 @@
 ## 하지 말아야 할 것 (실제로 반복됐던 실수)
 
 - `**config/terminal/zsh/zshrc`에 직접 append하지 않는다.** 이 파일들은 모든 머신에 심링크되는 git 관리 대상이다. `nvm`, `pyenv`, `rustup`, 각종 CLI 설치 스크립트가 로그인 셸 rc 파일에 자동으로 PATH/init 블록을 추가하는 경우가 흔한데, 이게 심링크를 타고 이 레포에 그대로 들어와 drift로 잡힌다. 설치 스크립트를 실행하기 전에 결과가 `~/.zshrc`에 append되는지 확인하고, **머신 전용 내용은 `~/.zshrc.d/local.zsh`로 옮길 것** — 이 파일들은 real file이며 절대 동기화 대상이 아니다. 이미 append돼버린 걸 발견했다면 `config/terminal/zsh/zshrc` 끝의 경고 배너 바로 아래에 있을 확률이 높다.
-- `**settings.json` / `config.toml`을 직접 편집하지 않는다.** 이건 병합 결과물이다. 바꾸고 싶으면 `config/ai/claude/settings.base.json` / `config/ai/codex/config.base.toml` / `config/terminal/herdr/config.base.toml`의 base 키를 고치고 `dotfiles apply`로 재병합시킨다. 직접 고치면 다음 apply 때 base 키와 충돌하거나, base에서 삭제한 키가 라이브 파일에 잔존하는 알려진 한계에 부딪힌다.
+- `**settings.json` / `config.toml`을 직접 편집하지 않는다.** 이건 병합 결과물이다. 바꾸고 싶으면 `config/ai/claude/settings.base.json` / `config/ai/codex/config.base.toml` / `config/terminal/herdr/config.base.toml`의 base 키를 고치고 `dotfiles apply`로 재병합시킨다. TOML에서 삭제된 base 키는 마지막 적용 값과 로컬 값이 같을 때만 제거한다. `[conflict]`는 로컬 값을 보존했다는 뜻이며, 강제 삭제하지 않는다. 스냅샷·최초 적용·마이그레이션 규칙은 `docs/SETUP_FOR_AGENTS.md`를 따른다. 이 삭제 규칙은 JSON 병합에는 적용되지 않는다.
 - **secrets를 `config/`에 커밋하지 않는다.** `dotfiles push`가 커밋 전 secret 스캔을 돌리지만 이건 백스톱이지 전부가 아니다. API 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둔다.
 - `**bin/dotfiles`(프레임워크 코드) 변경은 feature 브랜치로 하되, push 전에 반드시 `main`으로 머지한다.** hub transport 원격은 전부 자기 `main`만 pull한다. 브랜치에 커밋만 쌓아두고 `dotfiles push`를 돌리면 origin에 브랜치가 백업될 뿐 원격엔 아무 것도 배포되지 않는다 — push 전에 `git branch --show-current`로 확인하는 습관을 들인다.
 

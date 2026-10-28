@@ -23,6 +23,9 @@ class TerminalConfigTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix="terminal migration ")
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        state_env = patch.dict(os.environ, {"DOTFILES_STATE_DIR": str(self.root / "state")})
+        state_env.start()
+        self.addCleanup(state_env.stop)
         self.home = self.root / "home"
         self.xdg = self.home / ".config"
         self.home.mkdir()

@@ -55,6 +55,50 @@ source ~/.zshrc                                          # 7. apply
 
 Never edit `~/.claude/settings.json` / `~/.codex/config.toml` expecting the change to sync — shared intent goes in the `*.base.*` files in `config/`; machine-local things stay in the live file.
 
+### Retiring shared TOML keys
+
+`merge-toml.sh` saves the last successfully applied base per target under
+`${XDG_STATE_HOME:-~/.local/state}/dotfiles/toml/`. `DOTFILES_STATE_DIR` can override
+the dotfiles state directory. These snapshots are local to each machine; do not
+copy them between machines or commit them. They contain base values and use mode 0600.
+
+- Current base keys still overwrite live values. This policy has not changed.
+- A key removed from the previous base is deleted only if its live value still
+  equals the old base value, including its type. Other local keys remain intact.
+- A changed retired key is preserved and reported as `[conflict]`. Its old value
+  remains in pending state, so subsequent runs still report it. To resolve it,
+  have the user choose whether to remove the retired local setting or restore its
+  old managed value and reapply. Do not silently force deletion.
+- The first apply without a snapshot cannot infer past ownership. It preserves
+  unknown keys and seeds the snapshot. Existing machines must apply once before
+  future base deletions can be tracked. Losing the snapshot loses that history.
+- The Codex wrapper also runs `codex-toml-migrations.json`. This one-time migration
+  removes `commit_attribution` only for the exact known value `Codex (AI-generated)`;
+  other values are preserved and reported. Extend explicit migration records only
+  with verified historical values; never infer ownership from a key name alone.
+- `--check` writes no configuration, backup, or snapshot. It returns 1 for drift
+  or unresolved deletion conflicts, 0 otherwise. Apply reports preserved conflicts
+  but succeeds if the merge and snapshot succeed. Logs omit setting values.
+- Rendering and semantic validation finish before any persistent write. A changed
+  target gets a first-install backup and `.pre-merge.bak`, then an atomic replacement;
+  the snapshot is written last. If saving the snapshot fails after replacement,
+  repair the state directory and retry; do not delete the old snapshot.
+
+Bases retain the existing restriction to single-line assignments and ordinary
+tables. Unsupported renderings fail validation without updating the target or
+snapshot. Empty table headers can remain after key removal. JSON settings merges
+do not use this deletion mechanism.
+
+For a focused Codex preview and apply, use:
+
+```bash
+bash ~/dotfiles/.claude/skills/setup/scripts/merge-codex-config.sh --check
+bash ~/dotfiles/.claude/skills/setup/scripts/merge-codex-config.sh
+```
+
+Review base drift before applying: this applies all current Codex base keys as
+well as retired-key migrations, and can reset a locally changed managed setting.
+
 ## Multi-machine deploy
 
 Use control-initiated push only for machines that are normally reachable over SSH:
