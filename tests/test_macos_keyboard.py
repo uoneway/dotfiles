@@ -50,10 +50,18 @@ class MacOSKeyboardTest(unittest.TestCase):
         self.assertEqual(keyboard.run("check", self.source), 1)
         self.assertEqual(self.writes, [])
         self.assertEqual(keyboard.run("apply", self.source), 0)
-        self.assertEqual(self.values["TSMLanguageIndicatorEnabled"], ("0", "integer"))
+        expected = json.loads(self.source.read_text())
+        self.assertEqual(self.values, {key: (str(value), "integer")
+                                       for key, value in expected.items()})
+        self.assertCountEqual(self.writes, [
+            ["/usr/bin/defaults", "write", "-g", key, "-int", str(value)]
+            for key, value in expected.items()
+        ])
+        first_writes = list(self.writes)
         self.assertEqual(keyboard.run("apply", self.source), 0)
+        self.assertEqual(self.writes, first_writes)
         self.assertEqual(keyboard.run("check", self.source), 0)
-        self.assertEqual(len(self.writes), 1)
+        self.assertEqual(self.writes, first_writes)
 
     def test_linux_and_absent_config_do_not_touch_preferences(self):
         with patch.object(keyboard.platform, "system", return_value="Linux"):
