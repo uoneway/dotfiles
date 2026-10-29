@@ -200,6 +200,31 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(apps.main(["codex", "--version", "codex=0.159.2"], root=self.root), 0)
             install.assert_called_once_with("codex", "0.159.2", self.root, apps.policy(self.root)["codex"])
 
+    def test_pending_notice_is_last_even_when_an_installation_fails(self):
+        directory = self.root / ".local/state/dotfiles/notices"
+        directory.mkdir(parents=True)
+        (directory / "fixed.json").write_text(json.dumps(
+            dict(schema=1, id="fixed", message="[NOTICE] official source passes")))
+        for failed in (False, True):
+            output = io.StringIO()
+            def install(*unused):
+                print("installation log")
+                if failed:
+                    raise RuntimeError("fixture failed")
+            with self.subTest(failed=failed), patch.object(apps.Path, "home", return_value=self.root), \
+                    patch.dict(os.environ, {"XDG_STATE_HOME": str(self.root / ".local/state"), "DOTFILES_DEFER_NOTICES": ""}), \
+                    patch.object(apps, "install_cli", side_effect=install), \
+                    contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                self.assertEqual(apps.main(["codex"], root=self.root), int(failed))
+            self.assertTrue(output.getvalue().rstrip().endswith("[NOTICE] official source passes"))
+
+    def test_apply_can_defer_installer_notices_until_its_own_end(self):
+        with patch.object(apps.Path, "home", return_value=self.root), \
+                patch.dict(os.environ, {"DOTFILES_DEFER_NOTICES": "1"}), \
+                patch.object(apps, "install_cli"), patch.object(apps.notices, "emit") as emit:
+            self.assertEqual(apps.main(["codex"], root=self.root), 0)
+            emit.assert_not_called()
+
     def test_concurrent_install_is_rejected_before_mutations(self):
         state = self.root / ".local/state/dotfiles"
         state.mkdir(parents=True)
@@ -503,7 +528,7 @@ class InstallerTests(unittest.TestCase):
         cli.write_bytes((ROOT / "bin/dotfiles").read_bytes())
         scripts = self.root / ".claude/skills/setup/scripts"
         scripts.mkdir(parents=True)
-        for name in ("machine-config.sh", "machine-config.py", "install-apps.py"):
+        for name in ("machine-config.sh", "machine-config.py", "install-apps.py", "notices.py"):
             (scripts / name).write_bytes((ROOT / ".claude/skills/setup/scripts" / name).read_bytes())
         # Include the parser fallback so this subprocess test works on 3.8–3.10.
         import shutil

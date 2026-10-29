@@ -26,6 +26,11 @@ machine_config = importlib.util.module_from_spec(_machine_spec)
 _machine_spec.loader.exec_module(machine_config)
 tomllib = machine_config.tomllib
 
+_notices_spec = importlib.util.spec_from_file_location(
+    "dotfiles_notices", Path(__file__).with_name("notices.py"))
+notices = importlib.util.module_from_spec(_notices_spec)
+_notices_spec.loader.exec_module(notices)
+
 ROOT = Path(__file__).resolve().parents[4]
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?")
 LABEL = "local.karabiner.shift-english"  # Preserve the existing app/launchd identity.
@@ -488,7 +493,8 @@ def install_job(name, version, entry, home, root=ROOT):
         return install_brew(name, version, entry)
     command = script_command(entry, version, root)
     env = os.environ.copy()
-    env.update(DOTFILES_APP_NAME=name, DOTFILES_APP_VERSION=version, DOTFILES_ROOT=str(root))
+    env.update(DOTFILES_APP_NAME=name, DOTFILES_APP_VERSION=version, DOTFILES_ROOT=str(root),
+               DOTFILES_DEFER_NOTICES="1")
     run(command, env=env)
     print(f"[ok] {name}: personal installation script completed ({version})", flush=True)
 
@@ -502,6 +508,7 @@ def main(argv=None, root=ROOT):
     parser.add_argument("--machine", help="use this machines.toml entry; install locally, not over SSH")
     parser.add_argument("--catalog", action="store_true", help="print merged app definitions without installation")
     args = parser.parse_args(argv)
+    home = None
     try:
         data = policy(root)
         if args.catalog:
@@ -534,6 +541,9 @@ def main(argv=None, root=ROOT):
     except (ValueError, OSError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"[error] app installation failed: {error}", file=sys.stderr)
         return 1
+    finally:
+        if home is not None and os.environ.get("DOTFILES_DEFER_NOTICES") != "1":
+            notices.emit(home=home)
 
 
 if __name__ == "__main__":

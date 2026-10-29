@@ -7,6 +7,8 @@
 
 ## 현재 상태 (완료된 것)
 
+- **2순위 — 설치 알림을 최종 출력에 모으기**: 머신 로컬의 `dotfiles/notices/*.json`을 `install`·`apply` 마지막에 표시하고, `push`는 원격 알림을 수집해 최종 배포 요약 아래에 표시한다. 표시만으로 확인 처리하지 않는다. 사용법은 `docs/INSTALL_APPS.md`, 출력 순서 검증은 `tests/test_notices.py`를 참고한다.
+
 - **1순위 — 앱/CLI 설치 정책 구현**: `dotfiles install`, `apply` 설치 단계, 공용 `apps.json`과 개인 `config/apps.json`의 필드별 병합, `config/machines.toml`의 로컬 전용 `local.apps`, 등록 머신의 앱·구성 요소·배포 설정 기본값 `[defaults]`와 머신별 설정, 최신/지정 버전(공식 CLI, Homebrew, 개인 스크립트), CLI 없이 실행하는 `install.sh --apps/--setup`. Right Shift English는 버전별 소스 빌드로 설치한다. 사용법과 테스트는 `docs/INSTALL_APPS.md` 참고.
 
 - **아키텍처 확정·구현 완료**: config/ 단일 소스 + 심링크(인스트럭션·스킬·agents) + 병합(settings.base.json/config.base.toml — base 키만 교체, 머신 상태 보존) + manifest(`npx skills`, mattpocock 22종)

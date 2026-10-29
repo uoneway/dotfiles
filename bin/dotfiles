@@ -82,6 +82,12 @@ secret_scan() {
 }
 
 # ---------- apply (로컬/원격 공용, 무인 실행) ----------
+show_notices() {
+  if [ "${DOTFILES_DEFER_NOTICES:-}" != "1" ]; then
+    python3 "$SCRIPTS/notices.py"
+  fi
+}
+
 cmd_apply() {
   local comps="" machine="" explicit_machine=false skip_install=false
   local install_options=()
@@ -120,10 +126,10 @@ cmd_apply() {
 
   if ! $skip_install; then
     if [ ${#install_options[@]} -gt 0 ]; then
-      python3 "$SCRIPTS/install-apps.py" "${install_options[@]}" || return 1
+      DOTFILES_DEFER_NOTICES=1 python3 "$SCRIPTS/install-apps.py" "${install_options[@]}" || { show_notices; return 1; }
     else
       # Bash 3.2 with set -u cannot expand an empty array.
-      python3 "$SCRIPTS/install-apps.py" || return 1
+      DOTFILES_DEFER_NOTICES=1 python3 "$SCRIPTS/install-apps.py" || { show_notices; return 1; }
     fi
   elif [ ${#install_options[@]} -ne 0 ]; then
     echo "[error] --skip-install cannot be combined with version options" >&2
@@ -177,6 +183,7 @@ cmd_apply() {
       "$(date +%s)" > "$state_dir/applied"
   fi
 
+  show_notices
   return $rc
 }
 
@@ -275,6 +282,10 @@ cmd_push() {
   git -C "$DOTFILES" push origin HEAD || { echo "[error] framework push 실패"; return 1; }
   git -C "$CONFIG" push origin HEAD || { echo "[error] config push 실패"; return 1; }
 
+  PUSH_NOTICES_TMPDIR="$(mktemp -d)" || return 1
+  trap 'rm -rf "${PUSH_NOTICES_TMPDIR:-}"' EXIT
+  local notice_args=()
+
   # 3) 머신별 배포
   local n line host comps transport path summary=""
   for n in $targets; do
@@ -317,16 +328,28 @@ cmd_push() {
     fi
 
     # 원격 apply + verify
-    if ssh $SSH_OPTS "$host" "bash $path/bin/dotfiles apply $comps --machine $n"; then
+    if ssh $SSH_OPTS "$host" "DOTFILES_DEFER_NOTICES=1 bash $path/bin/dotfiles apply $comps --machine $n"; then
       summary="$summary\n  $n: OK ($comps)"
     else
       summary="$summary\n  $n: APPLY/VERIFY FAILED"
+    fi
+    # Read-only collection after apply; the final summary prints these last.
+    local notice_file="$PUSH_NOTICES_TMPDIR/$n.json"
+    if ssh $SSH_OPTS "$host" "python3 $path/.claude/skills/setup/scripts/notices.py --json" > "$notice_file"; then
+      notice_args+=(--report "$n" "$notice_file")
+    else
+      echo "  [warn] $n: 알림 수집 실패"
     fi
   done
 
   echo ""
   echo "=== push summary ==="
   printf "%b\n" "$summary" | sed '/^$/d'
+  if [ ${#notice_args[@]} -gt 0 ]; then
+    python3 "$SCRIPTS/notices.py" "${notice_args[@]}"
+  else
+    python3 "$SCRIPTS/notices.py"
+  fi
 }
 
 # ---------- status ----------

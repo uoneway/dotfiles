@@ -238,6 +238,22 @@ cp templates/installers/example.sh config/installers/my-tool.sh
 
 최신 버전 조회, 다운로드, 설치 결과 확인, 반복 실행 시 처리, 버전 고정은 개인 스크립트가 담당한다. 실패하면 0이 아닌 종료 코드를 반환해야 한다. 공용 설치 코드는 이 실패를 전달한다. 설정 파일과 스크립트가 커밋되면 다른 머신에서도 같은 방법으로 실행한다. 셸 초기화 파일을 직접 수정하는 설치 스크립트는 사용하지 않는다.
 
+### 설치 후 확인할 알림 남기기
+
+긴 설치 로그 뒤에 다시 보여야 하는 알림은 `${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/notices/`에 JSON 파일로 남긴다. 파일은 각 머신의 상태이며 설정 저장소에 넣지 않는다.
+
+```json
+{
+  "schema": 1,
+  "id": "my-tool-action-required",
+  "message": "[NOTICE] my-tool의 설정 변경을 확인하세요."
+}
+```
+
+`dotfiles install`은 모든 설치 출력 뒤에, `apply`는 설정 적용과 검증 뒤에 알림을 모아 표시한다. `push --all`은 원격에서 읽은 알림을 머신 이름과 함께 최종 배포 요약 아래에 표시한다. 알림 수집은 읽기 전용이며 추가 SSH 요청을 머신당 한 번 사용한다. 원격이 dirty이거나 pull에 실패해 적용하지 않은 머신의 알림은 수집하지 않는다.
+
+알림을 확인 처리하거나 더 이상 유효하지 않게 됐을 때 파일을 지우는 책임은 설치 스크립트에 있다. 스크립트가 직접 출력도 한다면 `DOTFILES_DEFER_NOTICES=1`일 때는 즉시 출력을 생략하고 파일만 남긴다. 터미널 시작 시 알림 조회나 업데이트 검사는 실행하지 않는다.
+
 ### Right Shift English 소스 빌드
 
 `right-shift-app`은 Right Shift English를 빌드하고 로그인 실행을 등록하는 전용 방식이다. `package`에는 dotfiles 기준 상대 소스 디렉터리를 적는다. `platforms`는 반드시 `["Darwin"]`으로 지정한다.
