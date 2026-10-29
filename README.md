@@ -51,7 +51,7 @@ bash ~/dotfiles/bin/dotfiles apply
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
 | `~/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. `machines.toml`에 `agents_addition`이 있으면 공통 파일과 추가 파일을 합친 결과에 링크 |
-| `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — `settings.base.json`의 키만 교체 |
+| `settings.json` 중 base 키 — permissions(allow/deny/ask), model, effortLevel, language, theme, statusLine, skillOverrides, env, 알림 설정 | ✅ | **병합** — 현재 base 키 교체 + 삭제된 관리 키의 조건부 제거 |
 | 플러그인 (`enabledPlugins`, `extraKnownMarketplaces`, `pluginConfigs`) | ✅ | 선언과 설정이 base로 동기화 → 각 머신이 자동 설치 |
 | `skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Claude 전용) |
 | `agents/` (서브에이전트) | ✅ | 심링크 |
@@ -71,7 +71,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | 항목 | 동기화 | 방식 / 이유 |
 |---|:---:|---|
 | `~/.codex/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. 머신별 추가 파일을 선택하면 Claude와 같은 합성 결과에 링크 |
-| `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, commit_attribution, `[tui]`, `[features]`, network_access | ✅ | **병합** — `config.base.toml`의 키만 교체 |
+| `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, `[tui]`, `[features]`, network_access | ✅ | **병합** — 현재 base 키 교체 + 이전 base에서 삭제된 키의 조건부 제거 |
 | `rules/` (실행 정책) | ✅ | 심링크 |
 | `~/.agents/skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용). Codex의 user-level 스킬 경로이며, 예전 `~/.codex/skills`에 남은 config 스킬은 apply가 정리 |
 | `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신. 자작 스킬 심링크와 같은 디렉토리에 공존 |
@@ -85,6 +85,8 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | `<profile>.config.toml` (프로파일) | 후보 | 현재 미사용 — 쓰게 되면 base 패턴으로 추가 |
 
 *✅\* = 지원되지만 현재 config에 없음 — 파일을 config에 추가하는 순간부터 동기화됨.*
+
+TOML과 Claude Code JSON 병합은 머신별로 마지막 적용 base를 저장합니다. 이후 base에서 키를 삭제하면 로컬 값이 이전 base 값과 같을 때만 제거하고, 로컬에서 바뀐 값은 보존하며 `[conflict]`로 알립니다. 최초 적용에는 과거 관리 이력을 추정하지 않습니다. 현재 base에 있는 키는 기존처럼 base 값으로 덮어씁니다. 스냅샷 위치, 확인 명령, 기존 설정 마이그레이션은 [관리 키 삭제 처리 안내](docs/SETUP_FOR_AGENTS.md#retiring-shared-settings)를 참고하세요. 배열은 전체 값을 한 단위로 비교합니다. 셸 심링크와 macOS 시스템 설정은 이 병합기에 포함되지 않습니다.
 
 ### 셸 (`~/.zshrc`)
 
@@ -190,7 +192,7 @@ dotfiles/                              # public: 프레임워크
 
 규칙:
 
-- **배포되는 것은 항상 커밋** — 로컬이 dirty면 push가 중단됩니다
+- **배포되는 것은 항상 커밋** — 로컬이 dirty면 경고 후 진행하며, 미커밋 변경은 배포되지 않습니다
 - **원격이 dirty면 건너뛰고 보고** — `--force`로만 덮어씁니다
 - **secrets는 배포하지 않음** — push 전 secret 스캔이 돌고, 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둡니다
 - GitHub 접근이 안 되는 머신은 `transport = "direct"`(ssh 직접 push)로 지정

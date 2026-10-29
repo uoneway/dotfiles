@@ -1,0 +1,7 @@
+[
+  {
+    "id": "remove-obsolete-commit-attribution-v1",
+    "path": ["commit_attribution"],
+    "values": ["Codex (AI-generated)"]
+  }
+]
