@@ -201,6 +201,13 @@ disable_codex_system_skills() {
   done < "$list"
 }
 
+# 도구 간 공유 훅 스크립트: Claude/Codex 훅 설정이 dotfiles 설치 경로와 무관한
+# 고정 경로(~/.agents/hooks)로 참조하게 한다. ~/.claude/hooks는 다른 도구가 쓰는 실디렉토리라 피한다.
+link_agent_hooks() {
+  [ -d "$CONFIG/ai/hooks" ] && backup_and_link_dir "$CONFIG/ai/hooks" "$HOME/.agents/hooks"
+  return 0
+}
+
 echo "--- $TOOL ---"
 
 case "$TOOL" in
@@ -211,6 +218,7 @@ case "$TOOL" in
     # 심링크하면 머신 간 충돌이 남. base 키만 교체하고 나머지(hooks 등)는 보존한다.
     [ -f "$CONFIG/ai/claude/settings.base.json" ] && bash "$(cd "$(dirname "$0")" && pwd)/merge-claude-settings.sh"
     [ -f "$CONFIG/ai/claude/statusline-command.sh" ] && backup_and_link "$CONFIG/ai/claude/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
+    link_agent_hooks
     # 선택 항목: config에 존재할 때만 링크
     [ -f "$CONFIG/ai/claude/keybindings.json" ] && backup_and_link "$CONFIG/ai/claude/keybindings.json" "$HOME/.claude/keybindings.json"
     [ -d "$CONFIG/ai/claude/output-styles" ] && backup_and_link_dir "$CONFIG/ai/claude/output-styles" "$HOME/.claude/output-styles"
@@ -238,6 +246,7 @@ case "$TOOL" in
       [ -f "$CONFIG/ai/codex/AGENTS.md" ] && link_instruction "$CONFIG/ai/codex/AGENTS.md" codex "$HOME/.codex/AGENTS.md"
     fi
     [ -d "$CONFIG/ai/codex/rules" ] && backup_and_link_dir "$CONFIG/ai/codex/rules" "$HOME/.codex/rules"
+    link_agent_hooks
     # 선택 항목: config에 존재할 때만 링크
     [ -d "$CONFIG/ai/codex/prompts" ] && backup_and_link_dir "$CONFIG/ai/codex/prompts" "$HOME/.codex/prompts"
     # Codex는 user-level 스킬을 도구 중립 경로 ~/.agents/skills에서 읽는다 (npx skills 서드파티와 공존).

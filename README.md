@@ -58,7 +58,8 @@ bash ~/dotfiles/bin/dotfiles apply
 | `statusline-command.sh` | ✅ | 심링크 |
 | `keybindings.json`, `output-styles/` | ✅* | config에 두면 자동 링크 (현재 미사용) |
 | `commands/` (커스텀 슬래시 커맨드) | ✅* | config에 두면 자동 링크 (현재 미사용 — 신규 작성은 skills 권장, commands는 구 방식) |
-| `settings.json` 중 `hooks` | ❌ | 머신별 경로 의존 (훅 스크립트 위치가 머신마다 다름) |
+| `settings.json` 중 `hooks` | ❌ | 머신별 경로 의존이고, 다른 도구(herdr 등)가 추가한 훅 배열을 base 병합이 통째로 덮어쓴다. 공유할 훅은 로컬 marketplace 플러그인으로 배포 |
+| `~/.agents/hooks/` (공유 훅 스크립트) | ✅ | `config/ai/hooks/` 디렉토리 심링크. Claude·Codex 훅 설정이 dotfiles 설치 경로와 무관하게 참조하는 고정 경로 |
 | `settings.json` 중 `permissions.additionalDirectories` | ❌ | 머신별 경로 |
 | `settings.local.json` | ❌ | 이름 그대로 머신 로컬 오버라이드 |
 | `~/.claude.json` | ❌ | OAuth 세션·MCP 서버 등록·프로젝트 신뢰 상태 — 런타임 상태, 도구가 자동 관리 |
@@ -73,6 +74,7 @@ Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. `~/AGENT
 | `~/.codex/AGENTS.md` (글로벌 인스트럭션) | ✅ | 기본은 `config/ai/AGENTS.md` 심링크. 머신별 추가 파일을 선택하면 Claude와 같은 합성 결과에 링크 |
 | `config.toml` 중 base 키 — model, model_verbosity, model_reasoning_effort, approval_policy, sandbox_mode, web_search, personality, `[tui]`, `[features]`, network_access | ✅ | **병합** — 현재 base 키 교체 + 이전 base에서 삭제된 키의 조건부 제거 |
 | `rules/` (실행 정책) | ✅ | 심링크 |
+| `config.toml` 중 `[hooks]` 이벤트 키 (`Stop` 등) | ✅ | base 병합. 명령은 `~/.agents/hooks/`의 공유 스크립트를 참조. 새 훅은 머신마다 `/hooks`에서 한 번 신뢰해야 실행 |
 | `~/.agents/skills/` (자작 스킬) | ✅ | per-skill 심링크 (공용 `ai/skills/` + Codex 전용). Codex의 user-level 스킬 경로이며, 예전 `~/.codex/skills`에 남은 config 스킬은 apply가 정리 |
 | `~/.agents/skills/` (서드파티 스킬) | ✅ | `skills-manifest.toml` 선언 → `npx skills`가 설치·갱신. 자작 스킬 심링크와 같은 디렉토리에 공존 |
 | 내장 스킬 끄기 | ✅ | `config/ai/codex/disabled-system-skills`에 적은 이름을 `config.toml`의 `[[skills.config]] enabled = false`로 보장 (경로가 머신마다 달라 base 병합 대신 apply가 추가) |
