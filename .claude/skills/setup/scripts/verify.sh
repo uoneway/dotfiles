@@ -168,6 +168,7 @@ if echo "$TOOLS" | grep -q "claude"; then
   fi
   check_skill_links "$HOME/.claude/skills" "$CONFIG/ai/skills" "$CONFIG/ai/claude/skills"
   check_link "$HOME/.claude/agents" "$CONFIG/ai/claude/agents" "agents/"
+  [ -d "$CONFIG/ai/hooks" ] && check_link "$HOME/.agents/hooks" "$CONFIG/ai/hooks" "~/.agents/hooks/"
   echo ""
 fi
 
@@ -180,6 +181,7 @@ if echo "$TOOLS" | grep -q "codex"; then
     check_instructions "$HOME/.codex/AGENTS.md" "$CONFIG/ai/codex/AGENTS.md" codex
   fi
   check_link "$HOME/.codex/rules" "$CONFIG/ai/codex/rules" "rules/"
+  [ -d "$CONFIG/ai/hooks" ] && check_link "$HOME/.agents/hooks" "$CONFIG/ai/hooks" "~/.agents/hooks/"
   check_skill_links "$HOME/.agents/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
   check_no_legacy_skills "$HOME/.codex/skills" "$CONFIG/ai/skills" "$CONFIG/ai/codex/skills"
   if [ -f "$CONFIG/ai/codex/disabled-system-skills" ]; then
