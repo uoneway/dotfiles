@@ -123,7 +123,10 @@ class TerminalConfig:
     def herdr_ui(self, check):
         base = self.config / "terminal/herdr/config-gpui.base.toml"
         target = self.xdg / "herdr/config-gpui.local.toml"
-        installed = shutil.which("herdr-gpui") or Path("/Applications/Herdr.app").exists()
+        # Herdr UI was renamed Sheprd; keep detecting older installs too.
+        installed = any(shutil.which(name) for name in ("sheprd", "herdr-gpui")) or any(
+            Path(app).exists() for app in ("/Applications/Sheprd.app", "/Applications/Herdr.app")
+        )
         if not base.is_file() or not (installed or target.is_file()):
             return
         command = ["bash", str(self.scripts / "merge-toml.sh"), str(base), str(target)]
