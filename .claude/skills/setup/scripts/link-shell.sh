@@ -7,6 +7,7 @@ DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 BACKUP="$DOTFILES/backup"
 source "$(dirname "$0")/machine-config.sh"
+source "$(dirname "$0")/shell-local-settings.sh"
 SHELL_TYPE="${1:-zsh}"
 
 backup_and_link() {
@@ -35,6 +36,9 @@ if ! command -v zsh >/dev/null 2>&1; then
   echo "  [error] Install zsh before applying terminal settings" >&2
   exit 1
 fi
+
+# Refuse reserved names and local symlinks before changing any shell files/backups.
+check_shell_local_settings "$CONFIG" "$HOME" || exit 1
 
 if [ -f "$CONFIG/terminal/zsh/zshrc" ]; then
   backup_and_link "$CONFIG/terminal/zsh/zshrc" "$HOME/.zshrc"

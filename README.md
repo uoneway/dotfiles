@@ -99,6 +99,10 @@ TOML과 Claude Code JSON 병합은 머신별로 마지막 적용 base를 저장�
 | `zshrc.d/local.zsh` (머신 전용 설정) | ❌ | 의도적 로컬 실파일 |
 | `zshrc.d/secrets.zsh` (API 키·토큰) | ❌ | **절대 동기화 금지** — push 전 secret 스캔이 이중 방어 |
 
+`local.zsh`와 `secrets.zsh`는 머신 전용 예약 이름이다. 공통 `config/terminal/zsh/zshrc.d/`에 같은 이름의 항목이 있거나 홈의 해당 파일이 심링크이면 셸 적용은 파일·백업을 변경하기 전에 중단하고, `verify`도 실패로 보고한다. 두 로컬 파일은 없어도 되며, 이미 심링크가 된 파일은 내용을 확인한 뒤 로컬 일반 파일로 직접 복구한다.
+
+Docker 연결 대상은 각 머신의 Docker 컨텍스트(`docker context`)로 관리한다. `~/.docker/`는 동기화하지 않으며, 공통 셸 설정에서 `DOCKER_HOST`나 `DOCKER_CONTEXT`를 고정하지 않는다. 개발 환경을 재생성하면서 Docker 설정도 초기화된다면 해당 환경의 생성 단계에서 컨텍스트를 복원한다.
+
 ### 터미널 앱과 실행 도구
 
 `terminal` 컴포넌트는 셸 설정, 설치된 Ghostty·Herdr의 설정, `config/bin/`의 실행 파일을 적용한다. 기존 `shell` 컴포넌트 이름도 같은 동작을 하는 호환 별칭으로 지원한다. 앱 설치 선택은 여전히 `apps`가 결정한다.

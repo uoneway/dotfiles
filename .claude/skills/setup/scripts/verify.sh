@@ -7,6 +7,7 @@ set -e
 DOTFILES="$(cd "$(dirname "$0")/../../../../" && pwd)"
 CONFIG="$DOTFILES/config"
 source "$(dirname "$0")/machine-config.sh"
+source "$(dirname "$0")/shell-local-settings.sh"
 MODE="--unified"
 TOOLS=""
 ERRORS=0
@@ -212,6 +213,9 @@ fi
 
 # Shell
 echo "--- shell (zsh) ---"
+if ! check_shell_local_settings "$CONFIG" "$HOME"; then
+  ERRORS=$((ERRORS + 1))
+fi
 if ! command -v zsh >/dev/null 2>&1; then
   echo "  [fail] zsh is not installed"
   ERRORS=$((ERRORS + 1))
@@ -219,6 +223,7 @@ fi
 check_link "$HOME/.zshrc" "$CONFIG/terminal/zsh/zshrc" "zshrc"
 if [ -d "$CONFIG/terminal/zsh/zshrc.d" ]; then
   for f in "$CONFIG/terminal/zsh/zshrc.d"/*.zsh; do
+    case "$(basename "$f")" in local.zsh|secrets.zsh) continue ;; esac
     [ -f "$f" ] && check_link "$HOME/.zshrc.d/$(basename "$f")" "$f" "zshrc.d/$(basename "$f")"
   done
 fi
