@@ -21,10 +21,14 @@ Project rules for work inside `~/dotfiles`. Claude Code and Codex read this file
 
 ## What not to do (mistakes that have recurred)
 
-- **Do not append to `config/terminal/zsh/zshrc` directly.** These files are git-managed and symlinked on every machine. Installers for `nvm`, `pyenv`, `rustup`, and many CLIs append PATH or init blocks to the login shell rc file, and that write follows the symlink into this repository and shows up as drift. Before running an installer, check whether it appends to `~/.zshrc`, and move machine-specific content to `~/.zshrc.d/local.zsh`, which is a real file and is never synced. If something was already appended, it is most likely just below the warning banner at the end of `config/terminal/zsh/zshrc`.
+- **Keep machine-local shell setup out of `config/terminal/zsh/zshrc`, including writes that reach it through the `~/.zshrc` symlink.** These files are git-managed and symlinked on every machine. Installers for `nvm`, `pyenv`, `rustup`, and many CLIs append PATH or init blocks to the login shell rc file, and that write follows the symlink into this repository and shows up as drift. Before running an installer, check whether it appends to `~/.zshrc`, and move machine-specific content to `~/.zshrc.d/local.zsh`, which is a real file and is never synced. If something was already appended, it is most likely just below the warning banner at the end of `config/terminal/zsh/zshrc`.
 - **Do not edit `settings.json` or `config.toml` directly.** They are merge results. To change a setting, edit the base key in `config/ai/claude/settings.base.json`, `config/ai/codex/config.base.toml`, or `config/terminal/herdr/config.base.toml`, then run `dotfiles apply` to merge again. For TOML and the Claude Code JSON, a base key that was deleted is removed locally only when the local value equals the last applied value. `[conflict]` means the local value was kept; do not force its removal. Snapshot, first-apply, and migration rules are in `docs/SETUP_FOR_AGENTS.md`. Do not extend this deletion rule to shell symlinks or macOS system settings.
 - **Do not commit secrets to `config/`.** `dotfiles push` runs a secret scan before deploying, but that is a backstop and does not catch everything. API keys and tokens go in each machine's `~/.zshrc.d/secrets.zsh`, which is excluded from sync.
-- **Change `bin/dotfiles` (framework code) on a feature branch, and merge to `main` before pushing.** Every hub-transport remote pulls only its own `main`. Running `dotfiles push` with commits left on a branch backs the branch up to origin and deploys nothing. Check `git branch --show-current` before pushing.
+- **Change `bin/dotfiles` (framework code) on a feature branch, and merge to `main` before deploying with `dotfiles push`.** Every hub-transport remote pulls only its own `main`. Running `dotfiles push` with commits left on a branch backs the branch up to origin and deploys nothing. Check `git branch --show-current` before pushing.
+
+## Code ownership
+
+This is a personal repository. You are the owner and long-term maintainer of its code, and its design is up to you: improve the structure as you work instead of adding to a shape that no longer fits. List every change you made beyond the request in your report. A request to change as little as possible overrides this.
 
 ## Deployment workflow
 
