@@ -9,6 +9,7 @@ Project rules for work inside `~/dotfiles`. Claude Code and Codex read this file
 - `dotfiles/` (this repository, public): the framework. It holds the CLI (`bin/dotfiles`), the shared app catalog (`apps.json`), `templates/`, and versioned app sources.
 - `dotfiles/config/` (private, a separate git repository named `dotfiles-config`): the actual personal settings. It is a nested repository with its own git history, fully separate from `dotfiles`. Check `git status` and `git -C config status` separately every time, because it is easy to commit one and forget the other.
 - How an app is installed is defined in the shared `apps.json`. The personal `config/apps.json` adds apps or overrides single fields. Which apps a machine installs is chosen in `config/machines.toml`: `local.apps` (an unnamed local run), `defaults.apps` (the default for registered machines that omit it), and `machines.<name>.apps`. The local section does not inherit `[defaults]`. Besides apps, `[defaults]` supplies shared defaults for `components`, `transport`, `path`, `agents_addition`, and `zsh_addition`. `components` sets which settings are applied and is not used to select apps. Personal install scripts go in `config/installers/`.
+- `VISIONS.md` holds the principles for the agent setup (global instructions, skills, workflow). Read it before adding, changing, or removing a skill or an instruction file.
 - `README.md` is the reference for the full architecture (the symlink versus merge table, the sync scope). This file does not repeat it and covers working rules only.
 
 ## Core principles
