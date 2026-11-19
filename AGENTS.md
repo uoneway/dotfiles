@@ -1,39 +1,39 @@
 # AGENTS.md
 
-`~/dotfiles`에서 작업할 때 적용되는 프로젝트 규칙의 기준 파일이다. Claude Code와 Codex가 이 파일을 직접 읽는다.
+Project rules for work inside `~/dotfiles`. Claude Code and Codex read this file directly.
 
-(참고: `config/ai/AGENTS.md`는 이것과 다른 파일이다 — 그건 모든 도구·모든 프로젝트에 배포되는 글로벌 인스트럭션이고, 이 파일은 dotfiles 레포 자체에서 작업할 때만 적용되는 규칙이다.)
+`config/ai/AGENTS.md` is a different file: it holds the global instructions deployed to every tool and every project. This file applies only to work on the dotfiles repository itself.
 
-## 레포 구조
+## Repository layout
 
-- `dotfiles/` (이 레포, public) — CLI(`bin/dotfiles`), 공용 앱 카탈로그(`apps.json`), `templates/`, 버전별 앱 소스를 담은 프레임워크.
-- `dotfiles/config/` (private, 별도 git 레포 `dotfiles-config`) — 실제 개인 설정. `**dotfiles`와는 완전히 별개의 git 히스토리를 가진 중첩 레포**다. 항상 `git status`와 `git -C config status`를 각각 확인할 것 — 하나만 커밋하고 다른 하나를 잊기 쉽다.
-- 앱 설치 방법은 공용 `apps.json`에 정의하고 개인 `config/apps.json`으로 앱을 추가하거나 필드별로 덮어쓴다. 설치할 머신은 `config/machines.toml`의 `local.apps`(이름 없는 로컬 실행), `defaults.apps`(등록 머신의 생략 시 기본값), `machines.<이름>.apps`에서 선택한다. 로컬 설정은 `[defaults]`를 상속하지 않는다. `[defaults]`는 앱 외에도 `components`, `transport`, `path`, `agents_addition`, `zsh_addition`의 공통 기본값을 지원한다. `components`는 설정 적용 범위이며 앱 선택에 사용하지 않는다. 개인 설치 스크립트는 `config/installers/`에 둔다.
-- 전체 아키텍처(심링크 vs 병합 대상 표, 동기화 범위)는 `README.md`가 기준 문서다. 여기서는 그걸 반복하지 않고 작업 규칙만 다룬다.
+- `dotfiles/` (this repository, public): the framework. It holds the CLI (`bin/dotfiles`), the shared app catalog (`apps.json`), `templates/`, and versioned app sources.
+- `dotfiles/config/` (private, a separate git repository named `dotfiles-config`): the actual personal settings. It is a nested repository with its own git history, fully separate from `dotfiles`. Check `git status` and `git -C config status` separately every time, because it is easy to commit one and forget the other.
+- How an app is installed is defined in the shared `apps.json`. The personal `config/apps.json` adds apps or overrides single fields. Which apps a machine installs is chosen in `config/machines.toml`: `local.apps` (an unnamed local run), `defaults.apps` (the default for registered machines that omit it), and `machines.<name>.apps`. The local section does not inherit `[defaults]`. Besides apps, `[defaults]` supplies shared defaults for `components`, `transport`, `path`, `agents_addition`, and `zsh_addition`. `components` sets which settings are applied and is not used to select apps. Personal install scripts go in `config/installers/`.
+- `README.md` is the reference for the full architecture (the symlink versus merge table, the sync scope). This file does not repeat it and covers working rules only.
 
-## 핵심 원칙
+## Core principles
 
-1. **내 의도(취향·정책)는 동기화, 머신 상태(런타임 기록·자격증명·머신 경로)는 로컬에 남긴다.** `config/`에 두는 것은 전부 모든 머신에 배포된다.
-2. **배포되는 것은 항상 커밋이다.** `dotfiles push`는 로컬(`dotfiles` 또는 `config`)이 dirty면 경고 후 진행한다. 미커밋 변경은 배포하지 않는다.
-3. **원격이 dirty하면 건너뛰고 보고만 한다.** `--force` 없이는 절대 덮어쓰지 않는다. 같은 이유로 `dotfiles status`는 읽기 전용이며 자동 복구를 하지 않는다 — 판정은 하되 손대지는 않는다.
-4. **Claude Code와 Codex CLI는 사용할 때마다 업데이트한다.** 설정은 최신 버전을 기준으로 작성하고, 구버전 호환을 위한 우회는 실제 필요가 확인될 때만 추가한다.
+1. **Sync intent, keep machine state local.** Intent means preferences and policy. Machine state means runtime records, credentials, and machine paths. Everything placed in `config/` is deployed to every machine.
+2. **Only commits are deployed.** `dotfiles push` warns and continues when the local `dotfiles` or `config` repository is dirty. Uncommitted changes are not deployed.
+3. **A dirty remote is skipped and reported.** Nothing overwrites it without `--force`. For the same reason `dotfiles status` is read-only and never repairs anything: it judges and does not touch.
+4. **Claude Code and the Codex CLI are updated every time they are used.** Write settings for the latest version, and add a workaround for an older version only when the need is confirmed.
 
-## 하지 말아야 할 것 (실제로 반복됐던 실수)
+## What not to do (mistakes that have recurred)
 
-- `**config/terminal/zsh/zshrc`에 직접 append하지 않는다.** 이 파일들은 모든 머신에 심링크되는 git 관리 대상이다. `nvm`, `pyenv`, `rustup`, 각종 CLI 설치 스크립트가 로그인 셸 rc 파일에 자동으로 PATH/init 블록을 추가하는 경우가 흔한데, 이게 심링크를 타고 이 레포에 그대로 들어와 drift로 잡힌다. 설치 스크립트를 실행하기 전에 결과가 `~/.zshrc`에 append되는지 확인하고, **머신 전용 내용은 `~/.zshrc.d/local.zsh`로 옮길 것** — 이 파일들은 real file이며 절대 동기화 대상이 아니다. 이미 append돼버린 걸 발견했다면 `config/terminal/zsh/zshrc` 끝의 경고 배너 바로 아래에 있을 확률이 높다.
-- `**settings.json` / `config.toml`을 직접 편집하지 않는다.** 이건 병합 결과물이다. 바꾸고 싶으면 `config/ai/claude/settings.base.json` / `config/ai/codex/config.base.toml` / `config/terminal/herdr/config.base.toml`의 base 키를 고치고 `dotfiles apply`로 재병합시킨다. TOML과 Claude Code JSON에서 삭제된 base 키는 마지막 적용 값과 로컬 값이 같을 때만 제거한다. `[conflict]`는 로컬 값을 보존했다는 뜻이며, 강제 삭제하지 않는다. 스냅샷·최초 적용·마이그레이션 규칙은 `docs/SETUP_FOR_AGENTS.md`를 따른다. 셸 심링크와 macOS 시스템 설정에는 이 삭제 규칙을 확장하지 않는다.
-- **secrets를 `config/`에 커밋하지 않는다.** `dotfiles push`가 커밋 전 secret 스캔을 돌리지만 이건 백스톱이지 전부가 아니다. API 키·토큰은 각 머신의 `~/.zshrc.d/secrets.zsh`(동기화 제외)에 둔다.
-- `**bin/dotfiles`(프레임워크 코드) 변경은 feature 브랜치로 하되, push 전에 반드시 `main`으로 머지한다.** hub transport 원격은 전부 자기 `main`만 pull한다. 브랜치에 커밋만 쌓아두고 `dotfiles push`를 돌리면 origin에 브랜치가 백업될 뿐 원격엔 아무 것도 배포되지 않는다 — push 전에 `git branch --show-current`로 확인하는 습관을 들인다.
+- **Do not append to `config/terminal/zsh/zshrc` directly.** These files are git-managed and symlinked on every machine. Installers for `nvm`, `pyenv`, `rustup`, and many CLIs append PATH or init blocks to the login shell rc file, and that write follows the symlink into this repository and shows up as drift. Before running an installer, check whether it appends to `~/.zshrc`, and move machine-specific content to `~/.zshrc.d/local.zsh`, which is a real file and is never synced. If something was already appended, it is most likely just below the warning banner at the end of `config/terminal/zsh/zshrc`.
+- **Do not edit `settings.json` or `config.toml` directly.** They are merge results. To change a setting, edit the base key in `config/ai/claude/settings.base.json`, `config/ai/codex/config.base.toml`, or `config/terminal/herdr/config.base.toml`, then run `dotfiles apply` to merge again. For TOML and the Claude Code JSON, a base key that was deleted is removed locally only when the local value equals the last applied value. `[conflict]` means the local value was kept; do not force its removal. Snapshot, first-apply, and migration rules are in `docs/SETUP_FOR_AGENTS.md`. Do not extend this deletion rule to shell symlinks or macOS system settings.
+- **Do not commit secrets to `config/`.** `dotfiles push` runs a secret scan before deploying, but that is a backstop and does not catch everything. API keys and tokens go in each machine's `~/.zshrc.d/secrets.zsh`, which is excluded from sync.
+- **Change `bin/dotfiles` (framework code) on a feature branch, and merge to `main` before pushing.** Every hub-transport remote pulls only its own `main`. Running `dotfiles push` with commits left on a branch backs the branch up to origin and deploys nothing. Check `git branch --show-current` before pushing.
 
-## 배포 워크플로우
+## Deployment workflow
 
 ```
-config/ 편집 (또는 bin/dotfiles 수정) → 해당 레포에 커밋
-  → dotfiles push --all         # 각 머신: git pull → apply → verify
-  → dotfiles status             # 배포 상태·drift 확인 (읽기 전용)
+edit config/ (or change bin/dotfiles) → commit in that repository
+  → dotfiles push --all         # each machine: git pull → apply → verify
+  → dotfiles status             # deployment state and drift (read-only)
 ```
 
-- `dotfiles status` / `dotfiles status --json`: STATE(`synced` / `behind N` / `drift` / `not bootstrapped` / `unreachable(사유)`)와 APPLIED(`ok` / `stale` / `never`, 마지막 적용 후 경과 시간)를 판정해서 보여준다. 원격당 ssh 왕복 1회로 필요한 정보를 전부 모으고, ControlMaster 소켓으로 반복 접속을 가속한다.
-- 네트워크가 바뀌거나 절전하는 이동형 랩탑은 `config/machines.toml`에 등록하지 않는다. 랩탑에서 `dotfiles pull`을 실행해 두 저장소를 `fast-forward`로 갱신한 뒤 설정을 적용하고 검증한다.
-- `~/.local/state/dotfiles/applied`: apply 성공 시 `<fw-sha> <cfg-sha> <epoch>`를 기록한다. "pull은 됐는데 apply가 실패/누락됨"을 감지하는 유일한 근거이므로, 이 기록 로직(`cmd_apply` 끝부분)을 건드릴 때는 신중히.
-- 새 기능/다음 작업은 `docs/backlog.md`(이 레포, public)에 우선순위(1/2/3순위)로 적어 세션 간 핸드오프한다. 개인 설정 관련 메모가 아니라 프레임워크 자체의 로드맵이라 public 레포 쪽이 맞는 자리다.
+- `dotfiles status` and `dotfiles status --json` report STATE (`synced` / `behind N` / `drift` / `not bootstrapped` / `unreachable(reason)`) and APPLIED (`ok` / `stale` / `never`, with the time since the last apply). They collect everything in one ssh round trip per remote and reuse a ControlMaster socket to speed up repeated connections.
+- Do not register a roaming laptop, one that changes networks or sleeps, in `config/machines.toml`. On the laptop, run `dotfiles pull`: it fast-forwards both repositories, then applies and verifies the settings.
+- `~/.local/state/dotfiles/applied` records `<fw-sha> <cfg-sha> <epoch>` when an apply succeeds. It is the only evidence for detecting "pulled but apply failed or was skipped", so take care when changing the code that writes it (the end of `cmd_apply`).
+- New features and next work go in `docs/backlog.md` (this repository, public) by priority (1, 2, 3) as the handoff between sessions. It is the framework's roadmap, not notes about personal settings, so it belongs in the public repository.

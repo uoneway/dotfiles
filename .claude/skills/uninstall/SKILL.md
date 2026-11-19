@@ -1,6 +1,6 @@
 ---
 name: uninstall
-description: "dotfiles 심링크 제거 및 원본 복원. uninstall, remove, restore 요청 시 트리거."
+description: "Remove dotfiles symlinks and restore the originals. Triggers on uninstall, remove, or restore requests."
 model: sonnet
 allowed-tools:
   - Bash(bash .claude/skills/uninstall/scripts/*)
@@ -11,90 +11,92 @@ allowed-tools:
   - Edit
 ---
 
-# /uninstall — dotfiles 심링크 제거
+# /uninstall — Remove dotfiles symlinks
 
-dotfiles가 생성한 심링크를 제거하고, 설치 이전 상태로 복원한다.
-단순히 백업을 되돌리는 것이 아니라, dotfiles 사용 중 변경한 설정을 잃지 않도록 비교 및 병합 과정을 거친다.
+Talk to the user in the user's language.
 
-## 사전 조건
+Remove the symlinks created by dotfiles and restore the pre-installation state.
+This does not simply revert backups; it goes through a compare-and-merge process so that settings changed while using dotfiles are not lost.
 
-- 현재 디렉토리가 `~/dotfiles` (또는 dotfiles 레포 루트)인지 확인
+## Prerequisites
 
-## Step 1: 현재 상태 확인
+- Check that the current directory is `~/dotfiles` (or the dotfiles repo root)
+
+## Step 1: Check current state
 
 ```bash
 bash .claude/skills/setup/scripts/verify.sh
 ```
 
-심링크된 항목들을 파악한다.
+Identify the symlinked items.
 
-## Step 2: 사용자 확인
+## Step 2: User confirmation
 
-AskUserQuestion으로 범위를 확인:
+Confirm the scope with AskUserQuestion:
 
-- **전체 제거**: 모든 dotfiles 심링크 제거
-- **선택 제거**: 특정 도구만 선택하여 제거 (claude, codex, gemini, shell)
+- **Full removal**: remove all dotfiles symlinks
+- **Selective removal**: select specific tools to remove (claude, codex, gemini, shell)
 
-## Step 3: 변경사항 비교
+## Step 3: Compare changes
 
-**이 단계가 핵심이다.** `backup/` 폴더에 저장된 원본이 있는 항목마다, dotfiles 사용 기간 중 `config/` 파일에 반영된 변경사항을 확인한다.
+**This step is the core.** For each item that has an original saved in the `backup/` folder, check the changes made to `config/` files during the period dotfiles was in use.
 
-백업은 `dotfiles/backup/` 아래에 홈 디렉토리 구조를 미러링하여 저장되어 있다:
-- `backup/.zshrc` — 설치 이전의 `~/.zshrc`
-- `backup/.claude/settings.json` — 설치 이전의 `~/.claude/settings.json`
-- 등등
+Backups are stored under `dotfiles/backup/`, mirroring the home directory structure:
+- `backup/.zshrc` — `~/.zshrc` from before installation
+- `backup/.claude/settings.json` — `~/.claude/settings.json` from before installation
+- and so on
 
-각 백업 파일에 대해:
+For each backup file:
 
-1. `backup/` 파일(설치 이전 원본)과 대응하는 `config/` 파일(현재 설정)을 읽는다
+1. Read the `backup/` file (pre-installation original) and the corresponding `config/` file (current settings)
 
-2. 두 파일을 비교하여 차이점을 분석한다:
-   - 예: `backup/.zshrc` vs `config/terminal/zsh/zshrc`
-   - 예: `backup/.claude/settings.json` vs `config/ai/claude/settings.json`
+2. Compare the two files and analyze the differences:
+   - Example: `backup/.zshrc` vs `config/terminal/zsh/zshrc`
+   - Example: `backup/.claude/settings.json` vs `config/ai/claude/settings.base.json`
 
-3. 차이가 있으면 사용자에게 보여주고 선택을 묻는다:
+3. If there are differences, show them to the user and ask for a choice:
 
-   **차이가 없는 경우:**
-   "원본과 현재 설정이 동일합니다. 원본을 복원합니다."
+   **If there are no differences:**
+   Tell the user the original and current settings are identical, so the original will be restored.
 
-   **차이가 있는 경우:**
-   변경된 내용을 요약해서 보여주고 AskUserQuestion:
-   - **원본 복원**: 설치 이전 파일을 그대로 되돌립니다 (dotfiles에서 변경한 내용은 사라집니다)
-   - **현재 설정 유지**: 심링크만 제거하고, `config/` 파일 내용을 실제 파일로 복사합니다
-   - **병합**: 두 파일의 차이를 보여주고 어떤 부분을 살릴지 직접 선택합니다
+   **If there are differences:**
+   Show a summary of what changed and use AskUserQuestion:
+   - **Restore original**: revert to the pre-installation file as is (changes made in dotfiles are lost)
+   - **Keep current settings**: remove only the symlink, and copy the `config/` file content into a real file
+   - **Merge**: show the differences between the two files and let the user choose which parts to keep
 
-4. 백업이 없는 항목은 심링크만 제거한다 (도구가 기본값을 사용하게 됨)
+4. For items without a backup, remove only the symlink (the tool will use its defaults)
 
-## Step 4: 심링크 제거 및 복원 실행
+## Step 4: Remove symlinks and restore
 
-Step 3에서 사용자가 결정한 방식에 따라 각 항목을 처리한다:
+Process each item according to the method the user decided in Step 3:
 
-- **원본 복원** 선택 항목:
+- Items where **Restore original** was chosen:
   ```bash
   bash .claude/skills/uninstall/scripts/unlink.sh <도구> --restore
   ```
 
-- **현재 설정 유지** 선택 항목:
+- Items where **Keep current settings** was chosen:
   ```bash
   bash .claude/skills/uninstall/scripts/unlink.sh <도구> --keep
   ```
 
-- **심링크만 제거** (백업 없음):
+- **Remove symlink only** (no backup):
   ```bash
   bash .claude/skills/uninstall/scripts/unlink.sh <도구> --remove-only
   ```
 
-- **병합** 선택 항목:
-  사용자와 대화하며 `backup/` 원본과 `config/` 현재 설정을 합친 파일을 생성하여 해당 위치에 저장한다.
+- Items where **Merge** was chosen:
+  Work through it with the user to produce a file that combines the `backup/` original and the current `config/` settings, and save it at the corresponding location.
 
-## Step 5: 결과 보고
+## Step 5: Report results
 
-처리 결과를 항목별로 요약한다:
-- 원본 복원된 항목
-- 현재 설정이 유지된 항목
-- 병합된 항목
-- 심링크만 제거된 항목 (백업 없음)
+Summarize the results per item:
+- Items restored to the original
+- Items where current settings were kept
+- Merged items
+- Items where only the symlink was removed (no backup)
 
-> **참고**: `config/` 디렉토리는 삭제하지 않는다. 사용자의 설정이 그대로 보존된다.
-> `backup/` 폴더도 그대로 남는다. 필요 없으면 수동으로 삭제할 수 있다.
-> 다시 설치하려면 `/setup`을 실행하면 된다.
+> **Note**: do not delete the `config/` directory. The user's settings are preserved as is.
+> The `backup/` folder also remains. It can be deleted manually if not needed.
+> To reinstall, run `/setup`.

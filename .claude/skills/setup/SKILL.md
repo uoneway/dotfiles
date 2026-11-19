@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "dotfiles 초기 설치. 환경 분석, AI 도구 설정, 셸 구성을 자동으로 처리. setup, install, configure 요청 시 트리거."
+description: "Initial dotfiles installation. Automatically handles environment analysis, AI tool configuration, and shell setup. Triggers on setup, install, or configure requests."
 model: sonnet
 allowed-tools:
   - Bash(bash .claude/skills/setup/scripts/*)
@@ -17,109 +17,111 @@ allowed-tools:
   - Glob
 ---
 
-# /setup — dotfiles 인스톨러
+# /setup — dotfiles installer
 
-dotfiles 설치 전 과정을 단계별로 수행한다.
-각 단계에서 스크립트 결과를 파싱하고, AI가 판단하여 다음 액션을 결정한다.
+Talk to the user in the user's language.
 
-## Step 0: 환영 메시지
+Run the whole dotfiles installation step by step.
+At each step, parse the script output and let the AI decide the next action.
 
-사용자에게 다음을 출력한다:
+## Step 0: Welcome message
+
+Show the user a message with the following content:
 
 ```
-dotfiles setup을 시작합니다.
+Starting dotfiles setup.
 
-AI 도구(Claude Code, Codex CLI)와 셸 설정을
-config/ 한 곳에서 관리하고, 각 도구에 연결합니다.
+AI tool settings (Claude Code, Codex CLI) and shell settings are
+managed in one place, config/, and linked to each tool.
 
-기존 설정 파일은 변경 전에 dotfiles/backup/에 자동 백업되며
-(홈 디렉토리 구조 그대로 보존), /uninstall로 언제든 복원할 수 있습니다.
+Existing config files are backed up automatically to dotfiles/backup/ before
+any change (keeping the home directory structure), and can be restored at any time with /uninstall.
 
-환경을 분석하고 몇 가지 질문을 드린 뒤 자동으로 설정합니다.
+I will analyze the environment, ask a few questions, then configure everything automatically.
 ```
 
-그 후 현재 디렉토리가 dotfiles 레포 루트인지 확인한다.
-아니라면 사용자에게 안내하고 중단한다.
+Then check whether the current directory is the dotfiles repo root.
+If not, tell the user and stop.
 
-## 백업 정책 (모든 단계에 공통 적용)
+## Backup policy (applies to every step)
 
-사용자의 기존 파일을 교체·수정하는 모든 스크립트는 아래 규칙으로 자동 백업한다:
+Every script that replaces or modifies a user's existing file backs it up automatically under these rules:
 
-| 대상 | 시점 | 위치 |
+| Target | When | Location |
 |---|---|---|
-| 심링크로 교체되는 파일/디렉토리 (AGENTS.md, skills, zshrc 등) | 교체 직전 | `dotfiles/backup/<홈 기준 상대경로>` |
-| 병합되는 파일 (settings.json, config.toml) | **최초 병합 전 1회** + 매 병합 시 `.pre-merge.bak` | `dotfiles/backup/` + 원본 옆 |
+| Files/directories replaced by symlinks (AGENTS.md, skills, zshrc, etc.) | Right before replacement | `dotfiles/backup/<홈 기준 상대경로>` |
+| Merged files (settings.json, config.toml) | **Once before the first merge** + `.pre-merge.bak` on every merge | `dotfiles/backup/` + next to the original |
 
-- `backup/`은 홈 디렉토리 구조를 미러링하므로 어떤 파일의 원본인지 즉시 알 수 있다
-- 이미 백업이 존재하면 덮어쓰지 않는다 (최초 설치 시점의 원본 보존)
-- 복원은 `/uninstall` (`--restore` 모드)이 수행한다
-- 각 단계 실행 중 `[backup]` 로그가 출력되면 사용자에게 백업 경로를 요약해 보여준다
+- `backup/` mirrors the home directory structure, so you can tell at once which file a backup is the original of
+- If a backup already exists, do not overwrite it (preserves the original from the time of first installation)
+- Restoring is done by `/uninstall` (`--restore` mode)
+- When a `[backup]` log appears during a step, show the user a summary of the backup paths
 
-## Step 1: 환경 분석
+## Step 1: Environment analysis
 
 ```bash
 bash .claude/skills/setup/scripts/check-env.sh
 ```
 
-출력을 파싱하여 다음을 파악한다:
+Parse the output to determine:
 - OS (macOS / Linux)
-- 현재 셸 (zsh / bash)
-- 설치된 AI 도구 (claude, codex, gemini)
-- Oh My Zsh 설치 여부
-- nvm 설치 여부
-- config/ 존재 여부 (최초 실행인지)
+- Current shell (zsh / bash)
+- Installed AI tools (claude, codex, gemini)
+- Whether Oh My Zsh is installed
+- Whether nvm is installed
+- Whether config/ exists (whether this is the first run)
 
-결과를 사용자에게 요약해서 보여준다.
+Show the user a summary of the results.
 
-## Step 2: 사용자 질문
+## Step 2: Questions for the user
 
-AskUserQuestion으로 3가지를 질문한다.
+Ask three questions with AskUserQuestion.
 
-### Q1. AI 도구 선택
+### Q1. AI tool selection
 
-"어떤 AI 도구를 설정할까요?"
+Ask which AI tools to configure.
 
-- 옵션: Claude Code, Codex CLI, Gemini CLI (복수 선택 가능)
-- 미설치 도구도 선택 가능 — Step 4에서 설치 안내
-- 기본값: 감지된 도구 중 Claude Code, Codex CLI
-  (Gemini CLI는 Antigravity 전환기라 기본 제외 — 사용자가 명시적으로 선택한 경우만 설정)
+- Options: Claude Code, Codex CLI, Gemini CLI (multiple selection allowed)
+- Tools that are not installed can also be selected — installation guidance in Step 4
+- Default: Claude Code and Codex CLI among the detected tools
+  (Gemini CLI is excluded by default because it is in the Antigravity transition period — configure it only if the user explicitly selects it)
 
-### Q2. 글로벌 인스트럭션 공유 전략
+### Q2. Global instruction sharing strategy
 
-"AI 도구 간 글로벌 인스트럭션을 어떻게 관리할까요?"
+Ask how global instructions should be managed across AI tools.
 
-- **통합**: 하나의 `AGENTS.md`를 작성하고 각 도구의 인스트럭션 진입점을 연결. 머신별 추가 파일이 선택된 경우 둘을 합친 결과를 연결
-  - 장점: 한 파일만 편집하면 모든 도구에 적용
-  - 적합: 도구 간 일관된 지시를 원할 때
-- **개별**: 각 도구마다 독립 인스트럭션 파일 유지
-  - 장점: 도구별 최적화 가능
-  - 적합: 도구마다 다른 지시를 내리고 싶을 때
+- **Unified**: write a single `AGENTS.md` and link each tool's instruction entry point to it. If a per-machine additional file is selected, link the combined result of the two
+  - Advantage: editing one file applies to all tools
+  - Suited for: when you want consistent instructions across tools
+- **Separate**: keep an independent instruction file for each tool
+  - Advantage: can be optimized per tool
+  - Suited for: when you want to give each tool different instructions
 
-### Q3. 멀티 OS 사용 여부
+### Q3. Multi-OS use
 
-"여러 OS(macOS/Linux)에서 이 dotfiles를 사용하시나요?"
+Ask whether the user uses these dotfiles on multiple OSes (macOS/Linux).
 
-- **예** → 추가 질문: "현재 OS는 {Step 1에서 감지된 OS}입니다. 추가로 사용하는 OS를 선택해주세요." (macOS / Linux 중 현재 OS가 아닌 것)
-  - Step 5에서 셸 설정을 공통/OS별로 분리하고, Step 7에서 동기화 방법 안내
-- **아니오** → 현재 OS 전용 설정으로 진행 (Step 5에서 현재 OS에 맞지 않는 설정만 정리)
+- **Yes** → follow-up question: tell the user the current OS is {Step 1에서 감지된 OS} and ask them to select the additional OS they use (whichever of macOS / Linux is not the current OS).
+  - In Step 5, split shell settings into common/per-OS, and in Step 7, explain how to sync
+- **No** → proceed with settings for the current OS only (in Step 5, only clean up settings that do not fit the current OS)
 
-## Step 3: config 초기화
+## Step 3: config initialization
 
-config/ 디렉토리가 없는 경우 (최초 실행):
+If the config/ directory does not exist (first run):
 
 ```bash
 bash .claude/skills/setup/scripts/init-config.sh
 ```
 
-config/가 이미 존재하면 이 단계를 건너뛴다. 초기 복사는 `config/apps.json`, `config/machines.toml`, `config/installers/`도 준비한다.
+If config/ already exists, skip this step. The initial copy also prepares `config/apps.json`, `config/machines.toml`, and `config/installers/`.
 
-앱 설치 방법은 공용 `apps.json`과 개인 `config/apps.json`을 병합해 읽는다. 설치 대상은 `config/machines.toml`에 저장한다. 이름 없는 로컬 실행은 `[local].apps`, 등록된 머신은 자기 `apps` 또는 생략 시 `[defaults].apps`를 사용한다. `[defaults]`는 `components`, `transport`, `path`, 추가 인스트럭션·셸 파일 같은 앱 외 설정도 지원한다. `[local]`은 기본값을 상속하지 않고 등록 머신에도 상속되지 않는다. Q1에서 선택한 CLI를 해당 목록에 반영한다. 기존에 선택된 다른 앱은 유지하고 새 앱을 임의로 추가하지 않는다. 자세한 필드와 예시는 [앱 설치 가이드](../../../docs/INSTALL_APPS.md)를 참고한다.
+App installation methods are read by merging the shared `apps.json` and the personal `config/apps.json`. Install targets are stored in `config/machines.toml`. An unnamed local run uses `[local].apps`; a registered machine uses its own `apps`, or `[defaults].apps` if omitted. `[defaults]` also supports non-app settings such as `components`, `transport`, `path`, and additional instruction and shell files. `[local]` does not inherit defaults and is not inherited by registered machines. Reflect the CLIs selected in Q1 in the corresponding list. Keep other apps that were already selected, and do not add new apps on your own. For detailed fields and examples, see the [app installation guide](../../../docs/INSTALL_APPS.md).
 
-### 인스트럭션 모드 처리 (Q2 결과에 따라)
+### Instruction mode handling (depending on the Q2 answer)
 
-init-config.sh 실행 후 Q2 선택에 따라 추가 작업:
+After running init-config.sh, do additional work depending on the Q2 choice:
 
-**통합 모드**: `config/ai/AGENTS.md` 하나만 사용. 각 도구별 인스트럭션 파일이 있으면 삭제한다.
+**Unified mode**: use only `config/ai/AGENTS.md`. Delete per-tool instruction files if they exist.
 
 ```bash
 rm -f ~/dotfiles/config/ai/claude/AGENTS.md
@@ -127,13 +129,13 @@ rm -f ~/dotfiles/config/ai/codex/AGENTS.md
 rm -f ~/dotfiles/config/ai/gemini/GEMINI.md
 ```
 
-**Gemini 선택 시** (Q1에서 명시적으로 선택한 경우만): init-config가 기본 제외하므로 템플릿을 복사한다.
+**If Gemini is selected** (only if explicitly selected in Q1): init-config excludes it by default, so copy the template.
 
 ```bash
 cp -r ~/dotfiles/templates/ai/gemini ~/dotfiles/config/ai/gemini
 ```
 
-**개별 모드**: 각 도구 폴더에 개별 인스트럭션 파일을 생성한다. `config/ai/AGENTS.md`의 내용을 초기값으로 복사한다.
+**Separate mode**: create a separate instruction file in each tool folder. Copy the content of `config/ai/AGENTS.md` as the initial value.
 
 ```bash
 cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/claude/AGENTS.md
@@ -141,238 +143,238 @@ cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/codex/AGENTS.md
 cp ~/dotfiles/config/ai/AGENTS.md ~/dotfiles/config/ai/gemini/GEMINI.md
 ```
 
-## Step 4: AI 도구 셋업
+## Step 4: AI tool setup
 
-Step 1 결과를 기반으로 AI가 판단한다.
+The AI decides based on the Step 1 results.
 
-### 미설치 AI 도구 안내
+### Guidance for AI tools that are not installed
 
-Q1에서 선택했지만 미설치인 도구가 있으면 설치할지, 나중에 할지 확인한다. 이미 설치를 요청한 도구는 같은 질문을 반복하지 않는다.
+If any tool selected in Q1 is not installed, confirm whether to install it now or later. Do not repeat the question for a tool the user has already asked to install.
 
-Codex CLI와 Claude Code는 카탈로그의 공식 설치 방식과 버전 정책을 사용한다. 설치하기로 한 도구만 명시해 실행한다. 아래 예시는 두 도구를 모두 선택한 경우다.
+Codex CLI and Claude Code use the catalog's official installation method and version policy. Run it naming only the tools the user decided to install. The example below is for when both tools are selected.
 
 ```bash
 bash bin/dotfiles install codex,claude --dry-run
 bash bin/dotfiles install codex,claude
 ```
 
-한 도구만 선택했으면 그 이름만 전달한다. 계속 관리할 설치 대상은 `machines.toml`의 해당 `apps` 목록에도 반영한다. 버전 고정은 개인 `apps.json`의 해당 앱에 `version`만 적는다. 실행 실패 시 설정 연결 전에 문제를 해결한다.
+If only one tool is selected, pass only that name. Also reflect install targets that should stay managed in the corresponding `apps` list in `machines.toml`. To pin a version, write only `version` on that app in the personal `apps.json`. If the run fails, fix the problem before linking settings.
 
-Gemini CLI는 현재 공용 앱 카탈로그에 없다. 선택한 경우 개인 카탈로그에 Homebrew 또는 개인 설치 스크립트 방식으로 정의하고 설치 목록에 추가한다. 설치하지 않은 도구의 설정만 준비하는 경우에는 설치를 건너뛰었다고 보고한다.
+Gemini CLI is not currently in the shared app catalog. If selected, define it in the personal catalog using Homebrew or a personal install script, and add it to the install list. If you are only preparing settings for a tool that was not installed, report that installation was skipped.
 
-### 심링크 생성 + 설정 병합
+### Create symlinks + merge settings
 
-Claude Code는 2.1.277 이상이어야 `AGENTS.md`를 직접 읽는다. 설치된 버전이 더 낮으면 먼저 Claude Code를 업데이트한다.
+Claude Code reads `AGENTS.md` directly only from version 2.1.277 or later. If the installed version is lower, update Claude Code first.
 
-선택한 각 AI 도구에는 Q2 결과에 따라 `--unified` 또는 `--separate` 플래그를 전달:
+Pass the `--unified` or `--separate` flag to each selected AI tool, depending on the Q2 answer:
 
 ```bash
-# 통합 모드
+# Unified mode
 bash .claude/skills/setup/scripts/link-tool.sh claude --unified
 bash .claude/skills/setup/scripts/link-tool.sh codex --unified
 
-# 개별 모드
+# Separate mode
 bash .claude/skills/setup/scripts/link-tool.sh claude --separate
 bash .claude/skills/setup/scripts/link-tool.sh codex --separate
 ```
 
-link-tool.sh가 수행하는 것:
+What link-tool.sh does:
 
-- **인스트럭션**: Claude는 `~/AGENTS.md`, Codex는 `~/.codex/AGENTS.md`, Gemini는 `~/.gemini/GEMINI.md`에 심링크. `machines.toml`의 `agents_addition`이 있으면 추가 지침을 합친 결과에 연결
-- **agents·rules·statusline**: 도구별 경로에 심링크
-- **settings.json / config.toml**: 심링크가 아닌 **병합** — `settings.base.json` / `config.base.toml`의
-  키만 교체하고 머신 로컬 항목(hooks, `[projects]` 등)은 보존 (merge-*.sh)
-- **skills**: 대상 디렉토리에 per-skill 심링크 (공용 `config/ai/skills/` + 도구 전용)
+- **Instructions**: symlink to `~/AGENTS.md` for Claude, `~/.codex/AGENTS.md` for Codex, `~/.gemini/GEMINI.md` for Gemini. If `machines.toml` has `agents_addition`, link to the result combined with the additional instructions
+- **agents, rules, statusline**: symlink to per-tool paths
+- **settings.json / config.toml**: **merge**, not symlink — replace only the keys from `settings.base.json` / `config.base.toml`
+  and preserve machine-local entries (hooks, `[projects]`, etc.) (merge-*.sh)
+- **skills**: per-skill symlinks in the target directory (shared `config/ai/skills/` + tool-specific)
 
-### 서드파티 스킬 설치
+### Install third-party skills
 
 ```bash
 bash .claude/skills/setup/scripts/install-manifest-skills.sh
 ```
 
-`config/ai/skills-manifest.toml`에 선언된 스킬을 `npx skills`로 `~/.agents/skills/`에 설치한다.
-네트워크 필요 — 실패해도 계속 진행하고 나중에 재실행하면 된다.
+Installs the skills declared in `config/ai/skills-manifest.toml` into `~/.agents/skills/` with `npx skills`.
+Requires network — if it fails, continue and rerun it later.
 
-각 스크립트의 출력을 확인하여 성공/실패를 파악한다.
-기존 설정 파일이 있었다면 `backup/` 폴더에 홈 디렉토리 구조를 미러링하여 백업된다.
+Check each script's output to determine success/failure.
+If config files already existed, they are backed up in the `backup/` folder, mirroring the home directory structure.
 
-## Step 5: 셸 셋업
+## Step 5: Shell setup
 
-배포할 셸 설정은 zsh 전용이다. zsh가 없으면 먼저 설치한다. 기존 Bash 설정은 마이그레이션 분석에만 사용하고 머신 로컬로 유지한다. 로그인 셸을 바꿀 수 없는 서버는 `link-shell.sh`가 인터랙티브 Bash에서 zsh로 전환하는 블록을 추가한다.
+The shell settings to deploy are zsh-only. If zsh is not present, install it first. Use existing Bash settings only for migration analysis, and keep them machine-local. For servers where the login shell cannot be changed, `link-shell.sh` adds a block that switches from interactive Bash to zsh.
 
-### 5-1. 기존 셸 설정 분석
+### 5-1. Analyze existing shell settings
 
-사용자의 현재 셸 설정 파일(`~/.zshrc` 또는 `~/.bashrc`)을 읽고, 내용을 항목별로 분석한다.
-이미 `config/terminal/zsh/` 에 셸 파일이 존재하면 그것을 분석 대상으로 한다.
+Read the user's current shell config file (`~/.zshrc` or `~/.bashrc`) and analyze its content item by item.
+If shell files already exist in `config/terminal/zsh/`, analyze those instead.
 
-분석 기준:
+Analysis criteria:
 
-| 분류 | 판단 기준 | 예시 |
+| Category | Criterion | Examples |
 |------|----------|------|
-| **공통** | OS에 무관하게 동작하는 설정 | alias, 환경변수(`PATH`에 OS 특정 경로 없는 것), 순수 셸 함수, 프롬프트 설정 |
-| **OS별** | OS에 따라 경로·명령어·패키지 관리자가 다른 설정 | Homebrew(`/opt/homebrew/`), `gls` vs `ls`, pnpm 경로(`~/Library/`) |
-| **프레임워크 의존** | Oh My Zsh, nvm 등 특정 도구가 설치되어 있어야 동작하는 설정 | `source $ZSH/oh-my-zsh.sh`, `plugins=(...)`, `NVM_DIR` |
+| **Common** | Settings that work regardless of OS | aliases, environment variables (`PATH` without OS-specific paths), pure shell functions, prompt settings |
+| **Per-OS** | Settings whose paths, commands, or package managers differ by OS | Homebrew (`/opt/homebrew/`), `gls` vs `ls`, pnpm path (`~/Library/`) |
+| **Framework-dependent** | Settings that only work when a specific tool such as Oh My Zsh or nvm is installed | `source $ZSH/oh-my-zsh.sh`, `plugins=(...)`, `NVM_DIR` |
 
-### 5-2. 환경 유효성 검증
+### 5-2. Environment validity check
 
-분석한 각 항목이 현재 환경에서 실제로 유효한지 검증한다.
+Check whether each analyzed item is actually valid in the current environment.
 
-검증 항목:
+Check items:
 
-- **참조 도구 존재 여부**: 설정에 등장하는 명령어/도구가 실제 설치되어 있는지 (`command -v`로 확인)
-  - 예: `gls` alias가 있지만 coreutils 미설치
-- **경로 유효성**: 설정에 하드코딩된 경로가 실제 존재하는지
-  - 예: `/opt/homebrew/opt/mysql-client@8.0/bin` 경로가 없는 경우
-- **프레임워크 의존성**: Oh My Zsh, nvm, p10k 등이 필요하지만 미설치인 경우
-- **OS 적합성**: 현재 OS에서 동작하지 않는 설정이 공통 영역에 포함된 경우
+- **Referenced tool exists**: whether commands/tools that appear in the settings are actually installed (check with `command -v`)
+  - Example: a `gls` alias exists but coreutils is not installed
+- **Path validity**: whether paths hardcoded in the settings actually exist
+  - Example: the path `/opt/homebrew/opt/mysql-client@8.0/bin` does not exist
+- **Framework dependencies**: Oh My Zsh, nvm, p10k, etc. are required but not installed
+- **OS fit**: settings that do not work on the current OS are included in the common area
 
-검증 결과를 사용자에게 테이블 형태로 보여준다:
+Show the user the check results as a table:
 
 ```
-셸 설정 검증 결과:
+Shell settings check results:
 
-[ok]    alias gs='git status'          — git 설치 확인됨
-[ok]    Oh My Zsh 플러그인 (git, z)     — Oh My Zsh 설치 확인됨
-[warn]  gls 사용 (lslh_pretty)          — coreutils 미설치
-[fail]  Oh My Zsh                      — 미설치 (셸 설정 전체가 의존)
+[ok]    alias gs='git status'          — git installed
+[ok]    Oh My Zsh plugins (git, z)      — Oh My Zsh installed
+[warn]  uses gls (lslh_pretty)          — coreutils not installed
+[fail]  Oh My Zsh                      — not installed (all shell settings depend on it)
 ```
 
-### 5-3. 문제 항목 처리
+### 5-3. Handle problem items
 
-검증에서 `[warn]` 또는 `[fail]`이 나온 항목에 대해 각각 처리 방안을 제시하고 사용자에게 선택받는다.
+For each item that came out `[warn]` or `[fail]` in the check, propose how to handle it and let the user choose.
 
-#### 핵심 의존성 미설치 (`[fail]` 수준)
+#### Core dependency not installed (`[fail]` level)
 
-셸 설정 전체가 의존하는 핵심 도구(예: 셸 프레임워크, 버전 매니저 등). 미설치 시 설정 파일이 정상 동작하지 않는다.
+Core tools that all shell settings depend on (e.g. a shell framework, a version manager). If not installed, the config file does not work properly.
 
-AskUserQuestion으로 각각 설치 여부를 묻는다. 설치 명령을 제시하되 강제 설치는 하지 않으며, 건너뛸 수 있다.
+Ask with AskUserQuestion whether to install each one. Present the install command, but do not force installation; the user can skip.
 
-#### 개별 항목 문제 (`[warn]` 수준)
+#### Individual item problems (`[warn]` level)
 
-AskUserQuestion으로 처리 방법을 묻는다. 항목별 선택지:
+Ask with AskUserQuestion how to handle it. Choices per item:
 
-- **설치**: 해당 도구를 지금 설치 (설치 명령 제시)
-- **제거**: 해당 설정을 셸 파일에서 제거
-- **OS별 파일로 이동**: 특정 OS에서만 유효한 설정이면 해당 OS 파일로 이동
-- **건너뛰기**: 지금은 무시하고 그대로 둠
+- **Install**: install the tool now (present the install command)
+- **Remove**: remove the setting from the shell file
+- **Move to per-OS file**: if the setting is valid only on a specific OS, move it to that OS's file
+- **Skip**: ignore it for now and leave it as is
 
-### 5-4. 셸 파일 생성
+### 5-4. Create shell files
 
-분석 결과와 Q3 응답을 종합하여 셸 파일을 구성한다.
+Build the shell files by combining the analysis results and the Q3 answer.
 
-#### 구성 원칙: guard 우선, OS 분기는 최후
+#### Composition principle: guards first, OS branching last
 
-도구·경로 의존 항목은 OS 파일로 옮기기 전에 **guard로 공통화할 수 있는지 먼저 검토**한다:
+For tool- and path-dependent items, **first consider whether they can be made common with a guard** before moving them to an OS file:
 
 ```zsh
 command -v nvim >/dev/null 2>&1 && alias v='nvim'
 [[ -d "$HOME/.npm-global/bin" ]] && export PATH="$HOME/.npm-global/bin:$PATH"
 ```
 
-guard로 감싼 설정은 어느 머신에서든 안전하므로 공통(zshrc)에 둘 수 있다.
-OS 파일에는 경로 자체가 OS 고유인 것만 남긴다 (Homebrew, ~/Library/pnpm 등).
+Settings wrapped in a guard are safe on any machine, so they can go in common (zshrc).
+Leave in OS files only what has an OS-specific path itself (Homebrew, ~/Library/pnpm, etc.).
 
-또한 3단 로딩 레이어를 유지한다: 공통(zshrc) → OS별(zshrc.d/{macos,linux}.zsh) →
-머신 로컬(zshrc.d/local.zsh, secrets.zsh — 실파일, 동기화 제외, 마지막에 source).
+Also keep the 3-level loading layers: common (zshrc) → per-OS (zshrc.d/{macos,linux}.zsh) →
+machine-local (zshrc.d/local.zsh, secrets.zsh — real files, excluded from sync, sourced last).
 
-#### 멀티 OS인 경우
+#### Multi-OS case
 
 ```
 config/terminal/zsh/
-├── zshrc              ← guard 기반 공통 설정 (OS 분기 source + local 레이어 source 포함)
+├── zshrc              ← guard-based common settings (includes per-OS source branching + local layer source)
 └── zshrc.d/
-    ├── macos.zsh      ← macOS 전용 (Homebrew 경로, pnpm 등)
-    └── linux.zsh      ← Linux 전용 (apt 계열 등)
+    ├── macos.zsh      ← macOS only (Homebrew paths, pnpm, etc.)
+    └── linux.zsh      ← Linux only (apt family, etc.)
 ```
 
-- `zshrc` 안에 `uname` 분기로 OS별 파일을 source하는 코드를 포함한다
-- 5-1에서 "OS별"로 분류된 항목 중 guard로 공통화 불가능한 것만 각 OS 파일에 배치한다
-- 사용자가 직접 사용하지 않는 OS의 파일은 현재 OS 파일을 참고한 스켈레톤으로 생성하되, 사용자에게 "해당 OS 머신에서 경로 등을 확인 후 수정이 필요합니다"라고 안내한다
+- Include code in `zshrc` that sources the per-OS file with a `uname` branch
+- Put in each OS file only those items classified as "Per-OS" in 5-1 that cannot be made common with a guard
+- For the OS the user is not directly using, create the file as a skeleton based on the current OS file, and tell the user that paths and similar settings need to be checked and fixed on a machine running that OS
 
-#### 단일 OS인 경우
+#### Single-OS case
 
 ```
 config/terminal/zsh/
-├── zshrc              ← 현재 OS 기준 전체 설정
-└── zshrc.d/           ← (비어있거나 생략)
+├── zshrc              ← full settings for the current OS
+└── zshrc.d/           ← (empty or omitted)
 ```
 
-- 모든 설정을 `zshrc` 하나에 유지한다
-- 5-3에서 "제거"를 선택한 항목은 제외한다
+- Keep all settings in the single `zshrc`
+- Exclude items for which "Remove" was chosen in 5-3
 
-### 5-5. 심링크 생성
+### 5-5. Create symlinks
 
 ```bash
 bash .claude/skills/setup/scripts/link-shell.sh zsh
 python3 .claude/skills/setup/scripts/terminal-config.py apply
 ```
 
-각 스크립트의 출력을 확인하여 성공/실패를 파악한다.
-기존 설정 파일이 있었다면 `backup/` 폴더에 홈 디렉토리 구조를 미러링하여 백업된다.
+Check each script's output to determine success/failure.
+If config files already existed, they are backed up in the `backup/` folder, mirroring the home directory structure.
 
-## Step 6: 검증
+## Step 6: Verification
 
-Q1에서 선택한 도구와 Q2 모드를 전달한다. `--tools`를 생략하면 심링크가 걸린 도구만 자동 감지한다.
+Pass the tools selected in Q1 and the Q2 mode. If `--tools` is omitted, only tools that have symlinks are detected automatically.
 
 ```bash
 bash .claude/skills/setup/scripts/verify.sh --unified --tools claude,codex
-# 또는
+# or
 bash .claude/skills/setup/scripts/verify.sh --separate --tools claude,codex,gemini
 ```
 
-출력을 파싱한다:
-- `[ok]` 항목 → 정상
-- `[fail]` 항목 → 문제 발견
+Parse the output:
+- `[ok]` items → normal
+- `[fail]` items → problem found
 
-문제가 발견되면:
-1. 원인을 분석한다 (경로 오류, 권한 문제, 소스 파일 부재 등)
-2. 자동 복구를 시도한다
-3. 복구 후 verify.sh를 다시 실행하여 확인
-4. 해결 불가능하면 사용자에게 수동 조치 방법을 안내
+If a problem is found:
+1. Analyze the cause (path error, permission problem, missing source file, etc.)
+2. Try to repair it automatically
+3. After the repair, rerun verify.sh to confirm
+4. If it cannot be fixed, tell the user how to fix it manually
 
-## Step 7: 완료 및 후속 안내
+## Step 7: Completion and follow-up guidance
 
-검증을 통과하면 다음을 출력한다:
+Once verification passes, show the user a message with the following content:
 
 ```
-Setup 완료! dotfiles가 성공적으로 설정되었습니다.
+Setup complete! dotfiles has been configured successfully.
 
-설정된 항목:
+Configured items:
 ```
 
-그 아래에 실제로 설정된 도구와 셸을 요약해서 보여준다. 예:
+Below that, show a summary of the tools and shell actually configured. For example:
 
 ```
   - Claude Code: ~/.claude/ -> config/ai/claude/
   - Codex CLI:   ~/.codex/  -> config/ai/codex/
   - zsh:         ~/.zshrc   -> config/terminal/zsh/zshrc
 
-이제 config/ 안의 파일을 편집하면 모든 도구에 반영됩니다.
+Editing files in config/ now applies to all tools.
 ```
 
-그 후 다음을 안내한다:
+Then give the following guidance:
 
-### 셸 적용
+### Apply the shell
 
 ```bash
 source ~/.zshrc
 ```
 
-### 멀티 머신 배포 제안
+### Multi-machine deployment suggestion
 
-여러 머신을 쓴다면 제어 머신 모델(`dotfiles push`)을 간단히 설명하고, 설정할지 AskUserQuestion으로 묻는다.
+If the user uses multiple machines, briefly explain the control-machine model (`dotfiles push`) and ask with AskUserQuestion whether to set it up.
 
-- **예** → Skill 도구로 `sync-setup` 스킬을 직접 호출하여 이어서 진행한다 (private repo + machines.toml + 부트스트랩).
-- **아니오** → 건너뛴다. "나중에 `/sync-setup`으로 언제든 설정할 수 있습니다."
+- **Yes** → invoke the `sync-setup` skill directly with the Skill tool and continue (private repo + machines.toml + bootstrap).
+- **No** → skip. Tell the user they can set it up at any time later with `/sync-setup`.
 
-### 커스터마이징 가이드
+### Customization guide
 
-- `config/` 내 파일을 편집한다. 직접 심링크된 항목은 즉시 반영되고, 머신별 추가 인스트럭션은 `dotfiles apply` 후 반영된다.
-- 공유 설정 변경: `settings.base.json` / `config.base.toml` 수정 후 `dotfiles apply` (또는 link-tool.sh 재실행)
-- 새 공용 스킬: `config/ai/skills/<name>/SKILL.md` / Claude 전용: `config/ai/claude/skills/<name>/SKILL.md`
-- 서드파티 스킬: `config/ai/skills-manifest.toml`에 선언
-- 앱 설치 방법과 버전: 개인 `config/apps.json`에서 앱을 추가하거나 공용 정의의 일부 필드를 덮어쓴다
-- 설치 대상: `config/machines.toml`의 `[local].apps`, `[defaults].apps`, 머신별 `apps`에서 선택한다
-- 개인 설치 코드: `config/installers/`에 스크립트를 두고 개인 앱 정의에서 연결한다
-- `templates/`는 초기 설정 예시이므로 개인 설정은 `config/`에서 변경한다
-- 변경 후 `dotfiles apply` 또는 `/setup` 재실행으로 갱신
+- Edit files in `config/`. Directly symlinked items take effect immediately; per-machine additional instructions take effect after `dotfiles apply`.
+- Changing shared settings: edit `settings.base.json` / `config.base.toml`, then `dotfiles apply` (or rerun link-tool.sh)
+- New shared skill: `config/ai/skills/<name>/SKILL.md` / Claude-only: `config/ai/claude/skills/<name>/SKILL.md`
+- Third-party skills: declare in `config/ai/skills-manifest.toml`
+- App installation methods and versions: add apps or override some fields of the shared definitions in the personal `config/apps.json`
+- Install targets: choose in `[local].apps`, `[defaults].apps`, and per-machine `apps` in `config/machines.toml`
+- Personal install code: put scripts in `config/installers/` and connect them from personal app definitions
+- `templates/` is an example of the initial setup, so change personal settings in `config/`
+- After changes, refresh with `dotfiles apply` or by rerunning `/setup`
