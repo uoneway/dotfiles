@@ -1,4 +1,4 @@
-# Visions
+# Vision
 
 Direction and principles for this agent setup: the global instructions, the skills, and the workflow shared by Claude Code and Codex. Use it to decide what to add, change, or remove. It is a judgment aid, not a rulebook: when a principle and an observed result disagree, trust the result and update this file.
 
@@ -44,7 +44,7 @@ The models now plan, test, and finish work on their own. The setup's job is to g
 ### Documents and code
 
 17. **A document has one reader.** Agent-facing documents (instruction files, skills, references) are in English, compressed, and describe only the current state. Human-facing documents (README, guides, reports) are in the user's language and are written to be read and edited by people.
-18. **Do not store what can be re-read.** State lives in code, git, and trackers. A file is created when the deliverable is a document or when content must reach another session or reader. Notes go stale, so check them against their source.
+18. **Do not store what can be re-read.** State lives in code, git, and trackers. A document for a person is written when it is asked for or is the deliverable. A document for agents is written only when it saves a later agent clearly more than reading those sources would cost, which in practice means intent, decisions, and boundaries they do not show. Notes go stale, so check them against their source.
 19. **Agents maintain the code; people review intent.** Structure code for an agent maintainer: searchable names, behaviour concentrated behind small interfaces, constraints enforced by checks instead of prose. Keep each change reviewable by a person at the level of what it is for.
 
 ### Scope of the setup
