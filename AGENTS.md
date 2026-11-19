@@ -26,10 +26,6 @@ Project rules for work inside `~/dotfiles`. Claude Code and Codex read this file
 - **Do not commit secrets to `config/`.** `dotfiles push` runs a secret scan before deploying, but that is a backstop and does not catch everything. API keys and tokens go in each machine's `~/.zshrc.d/secrets.zsh`, which is excluded from sync.
 - **Change `bin/dotfiles` (framework code) on a feature branch, and merge to `main` before deploying with `dotfiles push`.** Every hub-transport remote pulls only its own `main`. Running `dotfiles push` with commits left on a branch backs the branch up to origin and deploys nothing. Check `git branch --show-current` before pushing.
 
-## Code ownership
-
-This is a personal repository. You are the owner and long-term maintainer of its code, and its design is up to you: improve the structure as you work instead of adding to a shape that no longer fits. List every change you made beyond the request in your report. A request to change as little as possible overrides this.
-
 ## Deployment workflow
 
 ```
