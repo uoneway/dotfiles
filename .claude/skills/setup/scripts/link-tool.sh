@@ -23,10 +23,16 @@ instruction_source() {
   source_file="$CONFIG/ai/agents-additions/$extra"
   [ -f "$source_file" ] || { echo "[error] agents addition not found: $source_file" >&2; return 1; }
   output="$HOME/.local/state/dotfiles/AGENTS.$label.md"
-  mkdir -p "$(dirname "$output")"
-  tmp="$(mktemp "$output.XXXXXX")"
-  { cat "$base"; printf '\n'; cat "$source_file"; } > "$tmp"
-  mv "$tmp" "$output"
+  mkdir -p "$(dirname "$output")" || return 1
+  tmp="$(mktemp "$output.XXXXXX")" || return 1
+  if ! python3 "$(dirname "$0")/merge-agent-instructions.py" "$base" "$source_file" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv "$tmp" "$output"; then
+    rm -f "$tmp"
+    return 1
+  fi
   printf '%s\n' "$output"
 }
 

@@ -194,6 +194,8 @@ dotfiles/                              # public: 프레임워크
 
 `config/machines.toml`의 `agents_addition`과 `zsh_addition`으로 머신별 추가 파일을 선택한다. 파일은 각각 `config/ai/agents-additions/`와 `config/terminal/zsh/additions/`에 둔다.
 
+`agents_addition`에 기본 지침과 같은 `##` 제목이 있으면 해당 섹션 전체를 같은 위치에서 교체한다. 새 제목의 섹션은 끝에 붙인다.
+
 `push`는 머신 이름을 원격 `apply`에 전달한다. 원격에서 직접 `dotfiles apply`를 실행해도 저장된 이름으로 같은 파일을 선택한다. 제어 머신과 이동형 랩탑은 목록에 없으므로 공통 설정만 적용한다. 셸의 macOS/Linux 선택은 모든 머신에서 자동으로 이뤄진다.
 
 규칙:

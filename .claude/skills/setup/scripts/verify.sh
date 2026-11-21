@@ -89,7 +89,7 @@ check_instructions() {
   if [ ! -f "$CONFIG/ai/agents-additions/$extra" ] || [ ! -f "$generated" ]; then
     echo "  [fail] $label: selected addition or generated instructions missing"
     ERRORS=$((ERRORS + 1))
-  elif ! cmp -s <({ cat "$base"; printf '\n'; cat "$CONFIG/ai/agents-additions/$extra"; }) "$generated"; then
+  elif ! (set -o pipefail; python3 "$SCRIPTS/merge-agent-instructions.py" "$base" "$CONFIG/ai/agents-additions/$extra" | cmp -s - "$generated"); then
     echo "  [fail] $label: generated instructions differ from selected addition"
     ERRORS=$((ERRORS + 1))
   fi
